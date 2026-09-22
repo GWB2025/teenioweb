@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#17233f">
+  <meta name="description" content="Teenio web companion for the TEENIX97 replacement calculator board">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css?v=0.4.0">
+  <title>Teenio Web · HP-97</title>
+</head>
+<body>
+  <div class="app-shell">
+    <header>
+      <div>
+        <p class="eyebrow">HP-97 companion</p>
+        <h1>Teenio <span>Web</span></h1>
+      </div>
+      <div class="header-actions">
+        <button id="install" class="secondary" hidden>Install app</button>
+        <span id="sourceBadge" class="badge">WEB SERIAL</span>
+      </div>
+    </header>
+
+    <aside>
+      <section class="connection-card">
+        <h2>Connection</h2>
+        <label class="toggle"><input id="demo" type="checkbox"> <span>Demo mode</span></label>
+        <button id="connect" class="primary">Connect to TEENIX97</button>
+        <p id="status" class="status">Ready to connect</p>
+        <p class="hint">Pair TEENIX97 in macOS or Windows Bluetooth settings first. Chrome will then show it in the serial-device chooser.</p>
+      </section>
+
+      <nav aria-label="Teenio sections">
+        <button data-page="settings" class="active">Settings</button>
+        <button data-page="clock">Clock</button>
+        <button data-page="memory">Memory & registers</button>
+        <button data-page="programs">Stored programs</button>
+      </nav>
+
+      <button id="helpButton" class="secondary full">Help</button>
+      <p class="version">Web milestone 4 · v0.4.0</p>
+    </aside>
+
+    <main>
+      <div id="compatibility" class="notice error" hidden>
+        This browser does not expose Web Serial. Open Teenio Web in Chrome 117 or later on a desktop computer.
+      </div>
+
+      <section id="page-settings" class="page">
+        <div class="page-title">
+          <div><p class="eyebrow">Calculator information</p><h2>Your HP-97</h2></div>
+          <button id="readSettings" class="primary" disabled>Read settings</button>
+        </div>
+        <div class="metrics">
+          <article><span>Model</span><strong id="model">Not verified</strong></article>
+          <article><span>Firmware</span><strong id="firmware">Not read</strong></article>
+          <article><span>Bytes received</span><strong id="bytes">0</strong></article>
+        </div>
+        <article class="panel">
+          <div class="panel-heading"><h3>Calculator settings</h3><button id="saveSettings" class="secondary" disabled>Save report</button></div>
+          <div id="settings" class="settings-grid"><p class="empty">Connect and choose <strong>Read settings</strong>.</p></div>
+          <p id="lastRead" class="caption">No settings read in this session</p>
+        </article>
+      </section>
+
+      <section id="page-clock" class="page" hidden>
+        <div class="page-title">
+          <div><p class="eyebrow">Board clock</p><h2>Clock</h2></div>
+          <button id="readClock" class="primary" disabled>Read clock</button>
+        </div>
+        <article class="panel feature-panel">
+          <p class="hint">Read the clock before setting it. A live write changes only the time and date registers, preserves alarm and display-format registers, then reads the result back.</p>
+          <div class="clock-display">
+            <span>Calculator time</span>
+            <strong id="clockValue">Clock not read</strong>
+          </div>
+          <div class="clock-controls">
+            <label for="clockInput">New date and time</label>
+            <input id="clockInput" type="datetime-local" step="1">
+            <button id="useComputerTime" class="secondary">Use computer time</button>
+            <button id="setClock" class="primary" disabled>Set calculator clock</button>
+          </div>
+          <p id="clockMessage" class="caption">Read the board clock before setting it.</p>
+        </article>
+      </section>
+
+      <section id="page-memory" class="page" hidden>
+        <div class="page-title">
+          <div><p class="eyebrow">Active calculator RAM</p><h2>Memory & registers</h2></div>
+          <button id="readMemory" class="primary" disabled>Read memory & registers</button>
+        </div>
+        <article class="panel feature-panel">
+          <div class="panel-heading">
+            <div class="segmented" role="group" aria-label="Memory view">
+              <button class="active" data-memory-view="registers">Registers</button>
+              <button data-memory-view="listing">Program listing</button>
+              <button data-memory-view="raw">Raw RAM</button>
+            </div>
+            <div>
+              <button id="saveMemory" class="secondary" disabled>Save memory</button>
+              <button id="saveListing" class="secondary" disabled>Save listing</button>
+            </div>
+          </div>
+          <div id="memoryContent" class="memory-content"><p class="empty">Read active memory to display all sixteen registers and 224 program positions.</p></div>
+          <p id="memoryMessage" class="caption">Read settings first to verify HP-97 firmware 21.</p>
+        </article>
+      </section>
+      <section id="page-programs" class="page" hidden>
+        <div class="page-title">
+          <div><p class="eyebrow">Calculator card storage</p><h2>Stored programs</h2></div>
+          <button id="scanDirectory" class="primary" disabled>Scan block directory</button>
+        </div>
+        <article class="panel feature-panel">
+          <div class="storage-controls">
+            <label for="storageBlock">Storage block</label>
+            <select id="storageBlock" aria-label="Storage block"></select>
+            <label for="storageSlot">Slot</label>
+            <select id="storageSlot" aria-label="Stored-program slot"></select>
+            <button id="readSlot" class="primary" disabled>Read selected slot</button>
+          </div>
+          <p class="hint">A directory scan and slot read are read-only. Each slot contains one 150-byte HP-97 program card; a larger program may use two slots.</p>
+          <p class="caption">Click a slot number or program name below to select it.</p>
+          <p id="slotSelection" class="slot-selection caption" role="status" aria-live="polite"></p>
+          <div id="directoryGrid" class="directory-grid"><p class="empty">Choose a block and scan its 54-slot directory.</p></div>
+          <p id="directoryMessage" class="caption">Read settings first to verify HP-97 firmware 21.</p>
+        </article>
+        <article class="panel feature-panel">
+          <div class="panel-heading">
+            <h3>Current card</h3>
+            <div>
+              <button id="openCapture" class="secondary">Open capture…</button>
+              <button id="openHPP" class="secondary">Open HP-97 card…</button>
+              <input id="captureFile" type="file" accept=".calcom-slot,application/json" hidden>
+              <input id="hppFile" type="file" accept=".hpp,application/octet-stream" hidden>
+            </div>
+          </div>
+          <div id="storedCard" class="stored-card"><p class="empty">Read a slot or open a saved Teenio capture or HP-97 .hpp card.</p></div>
+          <div class="card-actions">
+            <button id="saveCapture" class="secondary" disabled>Save capture</button>
+            <button id="exportHPP" class="secondary" disabled>Export HP-97 card</button>
+            <button id="writeSlot" class="primary" title="Review the current card and destination, save a backup, then write and verify one stored slot" disabled>Write to selected slot…</button>
+          </div>
+          <p id="writeAvailability" class="caption"></p>
+          <p id="storageMessage" class="caption" role="status">Open or read a program card, choose its destination, then review the write.</p>
+          <div class="backup-panel">
+            <p id="backupMessage" class="caption">No destination backup in this session.</p>
+            <button id="saveBackup" class="secondary" title="Download another copy of the most recent destination backup" disabled>Save backup copy</button>
+          </div>
+        </article>
+      </section>
+
+      <section class="activity-panel">
+        <div class="panel-heading"><h3>Connection activity</h3><div><button id="saveLog" class="secondary" disabled>Save log</button><button id="clearLog" class="secondary">Clear</button></div></div>
+        <pre id="activity" aria-live="polite"></pre>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="writeDialog" aria-labelledby="writeTitle" aria-describedby="writeReview">
+    <p class="eyebrow">One stored program card</p>
+    <h2 id="writeTitle">Review card write</h2>
+    <p id="writeReview"></p>
+    <p>Teenio reads the destination, saves and checks its backup, then writes the card and reads it back. Keep the backup until you have checked the program. Demo mode keeps its backup in memory; use Save backup copy to keep it after closing the page.</p>
+    <div class="card-actions">
+      <button id="cancelWrite" class="secondary" autofocus>Cancel</button>
+      <button id="writeConfirm" class="primary">Choose backup file and write</button>
+    </div>
+  </dialog>
+
+  <dialog id="help">
+    <form method="dialog"><button class="dialog-close" aria-label="Close help">×</button></form>
+    <p class="eyebrow">Teenio Web help</p>
+    <h2>First connection</h2>
+    <ol>
+      <li>Use Chrome 117 or later on macOS or Windows.</li>
+      <li>Pair TEENIX97 in the computer’s Bluetooth settings.</li>
+      <li>On the calculator, hold <strong>f</strong>, press <strong>+</strong> to reach <strong>ConnEct AY En</strong>, then press <strong>A</strong>.</li>
+      <li>Choose <strong>Connect to TEENIX97</strong> and select the board in Chrome’s chooser.</li>
+      <li>Choose <strong>Read settings</strong>. A valid board reports HP-97 firmware 21.</li>
+    </ol>
+    <h2>Clock, memory and stored programs</h2>
+    <p><strong>Read clock</strong> performs the firmware-21 clock exchange. A clock write is available only after a successful live read and asks for confirmation before changing the board. <strong>Read memory &amp; registers</strong> transfers all 448 active RAM bytes and then displays the sixteen primary registers, all 224 program positions or the raw 64-register capture.</p>
+    <p><strong>Stored programs</strong> scans a block's 54-slot directory and reads one 150-byte card without changing it. Captures use the same checked <code>.calcom-slot</code> format as Teenio for Mac. Valid HP-97 <code>.hpp</code> files can be opened and exported. A vacant slot cannot be exported as a program.</p>
+    <h2>Write one stored card</h2>
+    <ol>
+      <li>Read settings to verify HP-97 firmware 21, then open an HP-97 card or read a source slot.</li>
+      <li>Choose the destination block and slot. Clicking a directory entry selects it without replacing the current source card.</li>
+      <li>Choose <strong>Write to selected slot…</strong> and check the source name and destination in the review.</li>
+      <li>Choose a new backup file when prompted. Teenio freshly reads the destination, saves its exact bytes and reopens the file to check it before writing. Cancelling or a backup failure stops the write.</li>
+      <li>Wait for <strong>written and verified</strong>, then scan the directory again. The check compares all 150 bytes. Load the stored card through the calculator’s card-read controls to run it.</li>
+    </ol>
+    <p>Live writing needs desktop Chrome’s file-saving support. Keep the page open and the calculator powered during a write. If it fails after writing starts, the destination may have changed: retain the backup and reconnect to inspect the slot. Teenio does not retry or restore automatically. Single-slot writing does not change active memory or registers. Uploading a two-card program requires two separate writes in the correct order; it is not an automatic two-card operation.</p>
+    <p>Demo writing changes only the browser’s temporary Demo storage and verifies a separate read from it. Demo backups are held in memory until saved; Demo captures cannot be written directly to the real calculator.</p>
+    <h2>Privacy and safety</h2>
+    <p>This milestone runs locally in your browser. It sends calculator bytes only through the serial device you select and does not upload them to a server. Demo mode never opens Bluetooth.</p>
+    <h2>Acknowledgements</h2>
+    <p>Teenio acknowledges Tony Nixon (TeenNix), creator of the TEENIX97 replacement board and the original CalCom application and documentation.</p>
+    <button id="closeHelp" class="primary">Close</button>
+  </dialog>
+
+  <script type="module" src="app.js?v=0.4.0"></script>
+</body>
+</html>
