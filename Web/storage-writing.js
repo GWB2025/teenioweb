@@ -1,7 +1,7 @@
 import {
   StorageError, StoredSlotWriteTransfer, encodeStoredCapture, loadStoredCapture,
   makeStoredCapture, sha256, validateProgramCard,
-} from "./stored-programs.js?v=0.4.0";
+} from "./stored-programs.js?v=0.5.0";
 
 function identical(left, right) {
   return left.length === right.length && left.every((byte, index) => byte === right[index]);

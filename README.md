@@ -4,29 +4,24 @@ A browser-based companion for the TEENIX97 HP-97 calculator board, with Bluetoot
 
 [**▶ Launch Teenio Web**](https://gwb2025.github.io/teenioweb/)
 
-Open the launch link in **desktop Chrome** on your Mac or Windows PC. The link becomes available after GitHub Pages has been enabled and the first deployment below has succeeded. GitHub's code preview shows files; the launch link opens the running application.
+Open the launch link in **desktop Chrome** on your Mac or Windows PC. The hosted app is available now. GitHub's code preview shows files; the launch link opens the running application.
 
 For private local use, [**launch the local copy**](http://localhost:8080/) after starting the server with the [local launch instructions](#run-locally). This option does not require GitHub Pages or a paid GitHub plan.
 
-This is the standalone web project, extracted from [Teenio for Mac](https://github.com/GWB2025/Teenio) at web version **0.4.0**. The browser application is in `Web/`; no native Mac build is required. Development remains private while hardware verification continues.
+This is the standalone web project, extracted from [Teenio for Mac](https://github.com/GWB2025/Teenio) at web version **0.4.0**. The browser application is in `Web/`; no native Mac build is required. The repository and GitHub Pages app are now public; hardware verification continues.
 
-## Enable the launch link on GitHub
+## Publish an update on GitHub
 
-**Hosting and privacy:** this repository is private. On 22 September 2026, its Pages settings displayed “Upgrade or make this repository public to enable Pages”. For a private repository owned by a personal account, GitHub Pages requires **GitHub Pro** (or an eligible Enterprise plan). Free accounts can use Pages with public repositories. Keep this repository private unless you deliberately decide to publish its source. See [GitHub Pages availability](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages).
+GitHub Pages is enabled with **GitHub Actions** as its source. The site is live at [gwb2025.github.io/teenioweb](https://gwb2025.github.io/teenioweb/).
 
-**A normal GitHub Pages website is public even when its repository is private.** Publishing makes the app's HTML, JavaScript, styles and icons downloadable by visitors. It does not publish your local calculator captures or grant visitors access to your calculator. If the app itself must remain private during development, use the local launch instructions below and leave Pages disabled. See [GitHub's publishing and visibility guidance](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site).
+1. Commit and push the new version to `main`.
+2. Open [Actions → Deploy Teenio Web to Pages](https://github.com/GWB2025/teenioweb/actions/workflows/pages.yml), choose **Run workflow**, select **main**, then choose **Run workflow** again.
+3. Wait for both **Check and package** and **Publish website** to succeed.
+4. Finish any calculator transfer and disconnect before refreshing the hosted app. Reopen or refresh it and check the version in the sidebar before reconnecting.
 
-When ready to publish:
+Publishing is **manual**: ordinary commits and pushes run the checks but do not update the website. The workflow tests the app and packages only runtime files, excluding calculator fixtures, program examples and research notes from the website. Those tracked files remain visible in the public source repository. The app handles calculator captures in your browser and does not upload them to a server.
 
-1. Commit and push the README, Pages workflow, packaging script and service-worker changes to `main`.
-2. Open [Settings → Pages](https://github.com/GWB2025/teenioweb/settings/pages). If the upgrade notice is still shown, an eligible plan is needed to continue with this private repository.
-3. Under **Build and deployment → Source**, select **GitHub Actions**. The workflow is already included; you do not need a Jekyll template or a `/docs` folder.
-4. Open [Actions → Deploy Teenio Web to Pages](https://github.com/GWB2025/teenioweb/actions/workflows/pages.yml), choose **Run workflow**, select **main**, then choose **Run workflow** again.
-5. Wait for both **Check and package** and **Publish website** to finish successfully. Then click **Launch Teenio Web** above, or **Visit site** in Settings → Pages.
-
-Publishing is **manual**: ordinary commits and pushes run the existing checks but do not update the public website. To publish a later version, push it to `main` and run the Pages workflow again. The workflow tests the app before deployment and packages only its runtime files; calculator fixtures, program examples, research notes and repository history are excluded from the website. It uses GitHub's built-in workflow token; no SSH key or personal access token is added to the workflow.
-
-The expected website address is **https://gwb2025.github.io/teenioweb/**. A 404 before the first successful deployment is expected. If deployment fails, open the failed step in Actions for its explanation. If GitHub blocks a deployment because of environment rules, allow `main` in **Settings → Environments → github-pages**.
+If deployment fails, open the failed step in Actions for its explanation. Pages configuration is under [Settings → Pages](https://github.com/GWB2025/teenioweb/settings/pages); keep **Build and deployment → Source** set to **GitHub Actions**. No additional workflow template is needed.
 
 ## Connect from the hosted app
 
@@ -37,9 +32,20 @@ The expected website address is **https://gwb2025.github.io/teenioweb/**. A 404 
 
 The hosted app communicates directly with your selected calculator through Chrome's Web Serial API. You grant access separately for the hosted website; a connection granted to `localhost` or a local file does not automatically transfer to it. You can install the hosted app using Chrome's installation control when available. Single-slot writing still requires choosing a destination backup file.
 
-## Current functionality — v0.4.0
+## Current functionality — v0.5.0
 
 `Web/` contains the browser companion. It uses Chrome's Web Serial API to open the Serial Port Profile on a paired Bluetooth Classic TEENIX97. It provides an installable offline interface, live or Demo connection, the firmware-21 information/settings query, clock read and guarded time/date setting with read-back, and the complete 448-byte active-memory transfer. The memory view decodes all sixteen primary registers and all 224 program positions, and exports both the memory report and aligned program listing.
+
+**Reopen saved memory:** in **Memory & registers**, choose **Open memory capture…** for a memory text report saved by Teenio Web or Teenio for Mac. The original capture time and Demo provenance are retained. All 64 consecutive RAM rows, hexadecimal bytes and metadata are validated; displayed values and instructions are recomputed from RAM. Text reports do not have a checksum. An invalid file leaves the previous memory view intact. This works while disconnected and sends no calculator commands.
+
+**Export a full program as two HPP cards:**
+
+1. Read current memory or open a saved memory capture.
+2. In **Stored programs**, read or open an existing valid program card. Its display/trigonometry settings and flags will be used as the template; its program instructions will not be copied. A vacant slot is not a template.
+3. Return to **Memory & registers**, enter a program name of up to 13 ASCII characters, and choose **Prepare two cards**.
+4. Save **card 1 of 2** and **card 2 of 2** separately. Keep them together and load card 1 before card 2. The first contains positions 001–112 and the second 113–224. Both cards are always produced, preserving trailing R/S instructions.
+
+The conversion uses the native app's card layout, verifies every program byte, checks each card checksum, and reopens both HPP exports to compare their exact contents. Numeric registers are not included in program cards; retain the full memory report to preserve them. Changing the memory capture, card template or name invalidates the prepared exports. If either source is Demo data, the export labels and filenames say DEMO; HPP itself does not store provenance. Preparing and saving cards does not upload them or modify calculator memory.
 
 The Stored programs screen performs read-only 54-slot directory scans and individual 150-byte card reads. It saves and reopens the same SHA-256-checked `.calcom-slot` format as Teenio for Mac, imports and exports checksum-validated HP-97 `.hpp` cards, and includes Demo storage. Strict reply validation, activity-log export, Help and Tony Nixon acknowledgement are included.
 
@@ -49,9 +55,11 @@ Click any directory slot number or program name to update the Slot selector besi
 
 **Backed-up single-slot writing:** open or read a valid source card, select the destination block/slot, then choose **Write to selected slot…**. Review the source and destination and choose a new backup file. Teenio freshly reads the destination, saves its capture to disk, reopens and checks it, and only then starts writing. A separate slot read must match all 150 source bytes before success is reported. Live writes require desktop Chrome's file-saving API and verified HP-97 firmware 21. A cancelled or failed backup prevents writing. Source/destination controls stay locked throughout the workflow. Errors do not trigger an automatic retry or restore; retain the backup if writing has started, reconnect and inspect the destination. Scan the directory again after a live write. Stored-card writing does not load active program memory.
 
-Demo writes use the same backup-validation and comparison workflow with temporary browser storage. The Demo backup stays in memory until **Save backup copy** is used, and direct writes of Demo captures to a real calculator are blocked. The latest destination backup remains available after an error or disconnect. A vacant or unrecognised backup remains saveable as an exact capture; this milestone only writes validated program cards and does not implement erasing/restoring an empty or unknown slot, automatic two-card uploading, or conversion of active RAM into card files.
+Demo writes use the same backup-validation and comparison workflow with temporary browser storage. The Demo backup stays in memory until **Save backup copy** is used, and direct writes of Demo captures to a real calculator are blocked. The latest destination backup remains available after an error or disconnect. A vacant or unrecognised backup remains saveable as an exact capture; this milestone only writes validated program cards and does not implement erasing/restoring an empty or unknown slot, automatic two-card uploading, or verification that a stored program has subsequently been loaded into active RAM.
 
-**Web verification:** 30 automated checks pass, including the physical marker-61 capture and HPP round trip, exact write packet sequence, saved-backup validation, cancellation/save failure, disconnect during backup, frozen source, malformed acknowledgements, mismatched read-back and isolation of the offline cache from other Pages projects. Browser Demo checks covered cancelling a write review, writing a source from slot 00 to vacant slot 49, checking the backup and read-back result, and opening/exporting the saved physical Lucas–Lehmer capture. The writer follows the native app's hardware-tested command-04 exchange, but a physical upload through this web implementation has **not yet been verified**. No physical calculator slot was changed during these web checks.
+**Web verification:** 39 automated checks pass, including the physical marker-61 capture and HPP round trip, exact write packet sequence, saved-backup validation, cancellation/save failure, disconnect during backup, frozen source, malformed acknowledgements, mismatched read-back and isolation of the offline cache from other Pages projects. Browser Demo checks covered cancelling a write review, writing a source from slot 00 to vacant slot 49, checking the backup and read-back result, and opening/exporting the saved physical Lucas–Lehmer capture. The writer follows the native app's hardware-tested command-04 exchange, but a physical upload through this web implementation has **not yet been verified**. No physical calculator slot was changed during these web checks.
+
+**23 September 2026 verification:** the hosted v0.4.0 session showed verified HP-97 firmware 21, a successful clock read and a complete 448-byte active-memory transfer. Version 0.5.0 adds nine automated checks for memory report import and card preparation. Tests reproduce an independently captured physical card body and both original extended Lucas–Lehmer HPP bodies, preserve all 224 positions, exclude numeric registers, reject malformed captures/templates, and retain Demo provenance. Separate browser checks cover Demo preparation, both downloaded files, native memory-report import, source-change invalidation and rejection without losing the previous capture. The newly exported pair still needs a physical load/run check; no write or clock change was made on the connected calculator during this development work.
 
 ## Run locally
 

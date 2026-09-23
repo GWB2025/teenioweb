@@ -79,7 +79,7 @@ main { min-width: 0; padding: 34px; background: #fbfcfe; }
 .panel, .activity-panel, .placeholder { padding: 22px; border: 1px solid var(--line); border-radius: 14px; background: white; }
 .feature-panel { margin-top: 24px; }
 .panel h3, .activity-panel h3 { margin: 0; }
-.panel-heading > div { display: flex; gap: 8px; }
+.panel-heading > div { display: flex; gap: 8px; flex-wrap: wrap; }
 .settings-grid { margin-top: 18px; border-top: 1px solid var(--line); }
 .setting-row { display: flex; justify-content: space-between; gap: 20px; padding: 10px 4px; border-bottom: 1px solid var(--line); }
 .setting-row strong { text-align: right; }
@@ -124,6 +124,13 @@ input[type="datetime-local"] { min-height: 39px; padding: 7px 10px; border: 1px 
 .card-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 .backup-panel { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); flex-wrap: wrap; }
 .backup-panel .caption { margin: 0; }
+.program-export-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 18px; }
+.program-export-controls label { width: 100%; font-weight: 700; font-size: .85rem; }
+.program-export-controls input { min-width: 0; width: 200px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.program-exports { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
+.program-exports[hidden] { display: none; }
+.program-exports > div { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 16px; border-radius: 10px; background: var(--soft); }
+.program-exports span { font-size: .8rem; color: var(--muted); }
 
 dialog { width: min(650px, calc(100vw - 36px)); padding: 30px; border: 0; border-radius: 16px; box-shadow: 0 24px 80px rgba(0, 0, 0, .3); }
 dialog::backdrop { background: rgba(13, 22, 40, .58); }
@@ -143,4 +150,6 @@ dialog li, dialog p { line-height: 1.6; }
   .listing-row span:last-child { grid-column: 3; }
   .directory-grid { grid-template-columns: 1fr; }
   .card-summary { grid-template-columns: 1fr; }
+  .program-exports { grid-template-columns: 1fr; }
+  .panel-heading { flex-wrap: wrap; }
 }

@@ -195,7 +195,7 @@ export function encodeStoredCapture(capture) {
 
 export async function loadStoredCapture(text) {
   if (text.startsWith("HP-97 active RAM capture")) {
-    throw new StorageError("This is an active-memory report, not a single stored-slot capture.");
+    throw new StorageError("This is an active-memory report. Use Memory & registers → Open memory capture… to view it and prepare program cards.");
   }
   let json;
   try { json = JSON.parse(text); } catch { throw new StorageError("This is not a valid Teenio stored-slot capture."); }

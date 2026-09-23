@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="styles.css?v=0.4.0">
+  <link rel="stylesheet" href="styles.css?v=0.5.0">
   <title>Teenio Web · HP-97</title>
 </head>
 <body>
@@ -41,7 +41,7 @@
       </nav>
 
       <button id="helpButton" class="secondary full">Help</button>
-      <p class="version">Web milestone 4 · v0.4.0</p>
+      <p class="version">Web milestone 5 · v0.5.0</p>
     </aside>
 
     <main>
@@ -100,12 +100,30 @@
               <button data-memory-view="raw">Raw RAM</button>
             </div>
             <div>
+              <button id="openMemory" class="secondary" title="Reopen a saved Teenio active-memory text report without connecting to a calculator">Open memory capture…</button>
+              <input id="memoryFile" type="file" accept=".txt,text/plain" hidden>
               <button id="saveMemory" class="secondary" disabled>Save memory</button>
               <button id="saveListing" class="secondary" disabled>Save listing</button>
             </div>
           </div>
           <div id="memoryContent" class="memory-content"><p class="empty">Read active memory to display all sixteen registers and 224 program positions.</p></div>
           <p id="memoryMessage" class="caption">Read settings first to verify HP-97 firmware 21.</p>
+        </article>
+        <article class="panel feature-panel">
+          <div class="panel-heading"><h3>Export program as two cards</h3><button id="chooseTemplate" class="secondary" title="Read or open a program card to supply the exported cards’ display settings and flags">Choose card template…</button></div>
+          <p class="hint">Preserve all 224 positions, including trailing R/S instructions, as two CalCom-compatible HPP files. Exporting leaves the calculator unchanged.</p>
+          <p id="exportMemorySource" class="caption"></p>
+          <p id="cardTemplate" class="caption"></p>
+          <div class="program-export-controls">
+            <label for="programName">Program name <span class="hint">(up to 13 characters)</span></label>
+            <input id="programName" type="text" maxlength="13" value="RAM restore" autocomplete="off" title="Plain English letters, numbers and punctuation; card numbers are added automatically">
+            <button id="prepareProgram" class="primary" disabled>Prepare two cards</button>
+          </div>
+          <div id="programExports" class="program-exports" hidden>
+            <div><strong id="part1Name"></strong><span>Positions 001–112 · load first</span><button id="exportPart1" class="secondary" disabled>Save card 1 of 2 (.hpp)</button></div>
+            <div><strong id="part2Name"></strong><span>Positions 113–224 · load second</span><button id="exportPart2" class="secondary" disabled>Save card 2 of 2 (.hpp)</button></div>
+          </div>
+          <p id="programExportMessage" class="caption" role="status">This exports the program only. Save memory above to keep the numeric registers too.</p>
         </article>
       </section>
       <section id="page-programs" class="page" hidden>
@@ -184,6 +202,14 @@
     <h2>Clock, memory and stored programs</h2>
     <p><strong>Read clock</strong> performs the firmware-21 clock exchange. A clock write is available only after a successful live read and asks for confirmation before changing the board. <strong>Read memory &amp; registers</strong> transfers all 448 active RAM bytes and then displays the sixteen primary registers, all 224 program positions or the raw 64-register capture.</p>
     <p><strong>Stored programs</strong> scans a block's 54-slot directory and reads one 150-byte card without changing it. Captures use the same checked <code>.calcom-slot</code> format as Teenio for Mac. Valid HP-97 <code>.hpp</code> files can be opened and exported. A vacant slot cannot be exported as a program.</p>
+    <h2>Reopen memory and export a complete program</h2>
+    <ol>
+      <li>In <strong>Memory &amp; registers</strong>, read the calculator or choose <strong>Open memory capture…</strong> and open a Teenio memory text report. Mac and Web reports are supported. The date, source and all 64 RAM rows are checked. A text report has no checksum; keep an unedited original. A program listing is not a memory capture.</li>
+      <li>Use <strong>Choose card template…</strong> to go to Stored programs. Read an existing program card, or open an HPP file or saved card capture. This supplies the display/trigonometry settings and flags; it does not supply the program instructions. A vacant slot cannot be a template.</li>
+      <li>Return to Memory &amp; registers, enter a short program name and choose <strong>Prepare two cards</strong>. All 224 positions are preserved as two cards, even if the program is short. The source memory and template remain unchanged.</li>
+      <li>Save <strong>both</strong> numbered HPP files. Load card 1 followed by card 2 using CalCom or the calculator’s stored-card controls. These files contain program instructions, not the sixteen numeric registers. Keep the full memory report separately.</li>
+    </ol>
+    <p>Changing the memory capture, template card or name clears prepared exports so the next export uses the new source. Demo-derived cards and filenames are labelled DEMO. HPP files contain no source or Demo metadata. Exporting sends no calculator commands; it does not upload or load a program.</p>
     <h2>Write one stored card</h2>
     <ol>
       <li>Read settings to verify HP-97 firmware 21, then open an HP-97 card or read a source slot.</li>
@@ -201,6 +227,6 @@
     <button id="closeHelp" class="primary">Close</button>
   </dialog>
 
-  <script type="module" src="app.js?v=0.4.0"></script>
+  <script type="module" src="app.js?v=0.5.0"></script>
 </body>
 </html>

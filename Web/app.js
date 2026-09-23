@@ -28,8 +28,9 @@ import {
   isVacantSlot,
   validateProgramCard,
   writeDemoSlot,
-} from "./stored-programs.js?v=0.4.0";
-import { saveBackupFile, writeBackedUpSlot } from "./storage-writing.js?v=0.4.0";
+} from "./stored-programs.js?v=0.5.0";
+import { saveBackupFile, writeBackedUpSlot } from "./storage-writing.js?v=0.5.0";
+import { loadMemoryReport, prepareMemoryCards } from "./memory-cards.js?v=0.5.0";
 import { WebSerialTransport } from "./serial.js";
 
 const elements = Object.fromEntries(Array.from(document.querySelectorAll("[id]"), element => [element.id, element]));
@@ -41,6 +42,7 @@ const state = {
   clockVerified: false,
   memoryReading: null,
   memoryView: "registers",
+  preparedProgram: null,
   directoryEntries: null,
   directoryBlock: null,
   storedCapture: null,
@@ -120,6 +122,7 @@ function memoryRow(className, values) {
 
 function renderMemory() {
   elements.readMemory.disabled = !state.connected || locked() || !verifiedFirmware();
+  elements.openMemory.disabled = locked();
   elements.saveMemory.disabled = !state.memoryReading;
   elements.saveListing.disabled = !state.memoryReading;
   document.querySelectorAll("[data-memory-view]").forEach(button => button.classList.toggle("active", button.dataset.memoryView === state.memoryView));
@@ -144,6 +147,30 @@ function renderMemory() {
     raw.className = "raw-memory";
     raw.textContent = state.memoryReading.rows.join("\n");
     elements.memoryContent.replaceChildren(raw);
+  }
+}
+
+function renderProgramExport() {
+  if (state.preparedProgram && (state.preparedProgram.memory !== state.memoryReading ||
+      state.preparedProgram.template !== state.storedCapture || state.preparedProgram.title !== elements.programName.value)) {
+    state.preparedProgram = null;
+    elements.programExportMessage.textContent = "Source or name changed. Prepare the cards again before exporting.";
+  }
+  let templateName = null;
+  try { templateName = validateProgramCard(state.storedCapture?.bytes ?? []).name; } catch { /* No valid template yet. */ }
+  elements.cardTemplate.textContent = templateName !== null
+    ? `Card settings from: ${state.storedCapture.simulated ? "DEMO · " : ""}${templateName || "Unnamed card"}.`
+    : "Read or open a valid card in Stored programs to supply its display settings and flags.";
+  elements.exportMemorySource.textContent = state.memoryReading
+    ? `${state.memoryReading.simulated ? "DEMO · " : ""}${state.memoryReading.fileName ? `File: ${state.memoryReading.fileName}` : "Calculator memory capture"} · ${state.memoryReading.capturedAt.toLocaleString()} · 224 positions.`
+    : "Read memory above or open a saved memory capture first.";
+  elements.prepareProgram.disabled = locked() || !state.memoryReading || templateName === null;
+  elements.programName.disabled = locked();
+  elements.programExports.hidden = !state.preparedProgram;
+  for (let part = 1; part <= 2; part += 1) {
+    elements[`exportPart${part}`].disabled = locked() || !state.preparedProgram;
+    const card = state.preparedProgram?.cards[part - 1];
+    elements[`part${part}Name`].textContent = card ? `${card.simulated ? "DEMO · " : ""}${card.name}` : "";
   }
 }
 
@@ -249,6 +276,7 @@ function render() {
   renderClock();
   renderMemory();
   renderStorage();
+  renderProgramExport();
 }
 
 function showPage(name) {
@@ -556,6 +584,38 @@ async function readMemory() {
   });
 }
 
+async function openMemoryCapture(file) {
+  if (locked()) return;
+  state.busy = true;
+  render();
+  try {
+    if (file.size > 32768) throw new Error("This file is too large for an HP-97 memory report.");
+    const reading = loadMemoryReport(await file.text());
+    state.memoryReading = { ...reading, fileName: file.name };
+    elements.memoryMessage.textContent = `Opened ${file.name} · ${reading.simulated ? "DEMO · " : ""}448 bytes. Text reports have no checksum; all RAM rows and metadata were checked.`;
+    setStatus("Saved memory capture opened", "success");
+    log(`Opened memory report ${file.name}; no calculator command sent.`);
+  } catch (error) {
+    elements.memoryMessage.textContent = `${error.message} The previous memory view is unchanged.`;
+    setStatus(error.message, "error");
+    log(`Memory report rejected: ${error.message}`);
+  } finally { state.busy = false; render(); }
+}
+
+function prepareProgram() {
+  if (locked()) return;
+  try {
+    const cards = prepareMemoryCards(state.memoryReading, state.storedCapture, elements.programName.value);
+    state.preparedProgram = { cards, memory: state.memoryReading, template: state.storedCapture, title: elements.programName.value };
+    elements.programExportMessage.textContent = `${cards[0].simulated ? "DEMO · " : ""}All 224 positions verified. Save both files and load card 1 before card 2. Numeric registers are not included. Display settings and flags come from the template card.`;
+    log("Prepared two HP-97 cards from the memory capture; program bytes and HPP round trips verified. No calculator command sent.");
+  } catch (error) {
+    state.preparedProgram = null;
+    elements.programExportMessage.textContent = error.message;
+  }
+  renderProgramExport();
+}
+
 async function scanDirectory() {
   const block = Number(elements.storageBlock.value);
   if (elements.demo.checked) {
@@ -760,6 +820,24 @@ elements.readClock.addEventListener("click", () => void readClock());
 elements.setClock.addEventListener("click", () => void setClock());
 elements.useComputerTime.addEventListener("click", () => { elements.clockInput.value = localInputValue(new Date()); });
 elements.readMemory.addEventListener("click", () => void readMemory());
+elements.openMemory.addEventListener("click", () => elements.memoryFile.click());
+elements.memoryFile.addEventListener("change", () => {
+  const [file] = elements.memoryFile.files;
+  if (file) void openMemoryCapture(file);
+  elements.memoryFile.value = "";
+});
+elements.chooseTemplate.addEventListener("click", () => showPage("programs"));
+elements.prepareProgram.addEventListener("click", prepareProgram);
+elements.programName.addEventListener("input", renderProgramExport);
+for (let part = 1; part <= 2; part += 1) {
+  elements[`exportPart${part}`].addEventListener("click", () => {
+    if (locked() || !state.preparedProgram) return;
+    const card = state.preparedProgram.cards[part - 1];
+    const name = `${card.simulated ? "DEMO-" : ""}${safeFilename(state.preparedProgram.title, "HP97-program")}-card-${part}.hpp`;
+    downloadBlob(name, new Blob([card.hpp], { type: "application/octet-stream" }));
+    elements.programExportMessage.textContent = `Download requested: ${name}. Keep both files together; load card 1 before card 2. Numeric registers are not included.`;
+  });
+}
 elements.scanDirectory.addEventListener("click", () => void scanDirectory());
 elements.readSlot.addEventListener("click", () => void readStoredSlot());
 elements.writeSlot.addEventListener("click", reviewSlotWrite);
