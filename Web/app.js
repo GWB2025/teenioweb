@@ -766,7 +766,9 @@ async function confirmSlotWrite() {
     // Request the file from the user's click before awaiting any calculator IO.
     const handle = job.simulated ? null : await window.showSaveFilePicker({
       suggestedName: `Teenio-backup-${job.block.toString(16).toUpperCase()}-${String(job.slot).padStart(2, "0")}-${new Date().toISOString().replace(/[:.]/g, "-")}.calcom-slot`,
-      types: [{ description: "Teenio destination backup", accept: { "application/json": [".calcom-slot"] } }],
+      // Keep the native-compatible filename, but omit the type filter: the File
+      // System Access API forbids hyphens in accept suffixes, not in filenames.
+      // https://wicg.github.io/file-system-access/#valid-suffix-code-point
     });
     ensureConnected();
     const result = await writeBackedUpSlot({ ...job, ensureConnected,
