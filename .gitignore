@@ -7,5 +7,5 @@ __pycache__/
 .env.*
 Exports/
 dist/
+_site/
 *.calcom-slot
-
