@@ -31,11 +31,12 @@ import {
 } from "./stored-programs.js?v=0.5.0";
 import { saveBackupFile, writeBackedUpSlot } from "./storage-writing.js?v=0.5.0";
 import { loadMemoryReport, prepareMemoryCards } from "./memory-cards.js?v=0.5.0";
-import { WebSerialTransport } from "./serial.js";
+import { WebSerialTransport } from "./serial.js?v=0.5.1";
 
 const elements = Object.fromEntries(Array.from(document.querySelectorAll("[id]"), element => [element.id, element]));
 const state = {
   connected: false,
+  connecting: false,
   busy: false,
   reading: null,
   clockReading: null,
@@ -263,7 +264,9 @@ function renderStorage() {
 }
 
 function render() {
-  elements.connect.textContent = state.connected ? "Disconnect" : "Connect to TEENIX97";
+  elements.connectLabel.textContent = state.connecting ? "Connecting…" : state.connected ? "Disconnect" : "Connect to TEENIX97";
+  elements.connectSpinner.hidden = !state.connecting;
+  elements.connect.setAttribute("aria-busy", String(state.connecting));
   elements.connect.disabled = locked();
   elements.readSettings.disabled = !state.connected || locked();
   elements.saveSettings.disabled = !state.reading;
@@ -377,6 +380,7 @@ function resetReadings() {
 }
 
 async function connect() {
+  if (locked() || state.connected) return;
   const session = ++state.session;
   if (elements.demo.checked) {
     state.connected = true;
@@ -388,9 +392,11 @@ async function connect() {
     render();
     return;
   }
+  state.connecting = true;
   state.busy = true;
   setStatus("Choose the paired TEENIX97 in Chrome…");
   render();
+  let deviceChosen = false;
   try {
     state.transport = new WebSerialTransport({
       onBytes: bytes => receive(bytes, session),
@@ -401,6 +407,10 @@ async function connect() {
         }
       },
       onLog: log,
+      onConnecting: () => {
+        deviceChosen = true;
+        if (state.session === session) setStatus("Connecting to TEENIX97… Keep the calculator switched on and nearby.");
+      },
     });
     await state.transport.connect();
     if (state.session !== session) return;
@@ -409,14 +419,19 @@ async function connect() {
     state.bytesReceived = 0;
     resetReadings();
     setStatus("Bluetooth serial connection open", "success");
-    render();
   } catch (error) {
+    if (state.session !== session) return;
     state.transport = null;
     state.connected = false;
     state.busy = false;
-    setStatus(error.message, "error");
-    log(`Connection failed: ${error.message}`);
-    render();
+    const cancelled = !deviceChosen && (error.name === "NotFoundError" || error.name === "AbortError");
+    setStatus(cancelled ? "Connection cancelled. Choose Connect to try again." : error.message, cancelled ? "neutral" : "error");
+    log(cancelled ? "Connection cancelled." : `Connection failed: ${error.message}`);
+  } finally {
+    if (state.session === session) {
+      state.connecting = false;
+      render();
+    }
   }
 }
 
@@ -426,6 +441,7 @@ async function disconnect(reason = "Disconnected") {
   state.session += 1;
   state.transport = null;
   state.connected = false;
+  state.connecting = false;
   state.closing = true;
   if (state.pending?.timer) clearTimeout(state.pending.timer);
   state.pending = null;

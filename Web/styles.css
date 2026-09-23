@@ -50,6 +50,12 @@ header .eyebrow { color: #aebbd6; }
 aside { display: flex; flex-direction: column; gap: 18px; padding: 24px 18px; border-right: 1px solid var(--line); background: var(--soft); }
 .connection-card { padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: white; }
 .connection-card h2 { margin-bottom: 14px; font-size: 1rem; }
+#connect { display: inline-flex; align-items: center; justify-content: center; gap: 9px; }
+#connect[aria-busy="true"] { opacity: 1; cursor: progress; }
+.connect-spinner { flex: 0 0 auto; width: 1em; height: 1em; border: 2px solid rgba(255, 255, 255, .35); border-top-color: white; border-radius: 50%; animation: connection-spin .8s linear infinite; }
+.connect-spinner[hidden] { display: none; }
+@keyframes connection-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .connect-spinner { animation: none; } }
 .toggle { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; }
 .hint, .caption, .version { color: var(--muted); font-size: .78rem; line-height: 1.45; }
 .status { min-height: 38px; margin: 12px 0 6px; font-size: .82rem; font-weight: 700; }

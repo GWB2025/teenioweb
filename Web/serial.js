@@ -1,10 +1,11 @@
 const SPP_UUID = "00001101-0000-1000-8000-00805f9b34fb";
 
 export class WebSerialTransport {
-  constructor({ onBytes, onDisconnect, onLog }) {
+  constructor({ onBytes, onDisconnect, onLog, onConnecting = () => {} }) {
     this.onBytes = onBytes;
     this.onDisconnect = onDisconnect;
     this.onLog = onLog;
+    this.onConnecting = onConnecting;
     this.port = null;
     this.reader = null;
     this.closing = false;
@@ -24,6 +25,7 @@ export class WebSerialTransport {
       filters: [{ bluetoothServiceClassId: SPP_UUID }],
       allowedBluetoothServiceClassIds: [SPP_UUID],
     });
+    this.onConnecting();
     await this.port.open({
       baudRate: 9600,
       dataBits: 8,

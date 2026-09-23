@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="styles.css?v=0.5.0">
+  <link rel="stylesheet" href="styles.css?v=0.5.1">
   <title>Teenio Web · HP-97</title>
 </head>
 <body>
@@ -28,8 +28,8 @@
       <section class="connection-card">
         <h2>Connection</h2>
         <label class="toggle"><input id="demo" type="checkbox"> <span>Demo mode</span></label>
-        <button id="connect" class="primary">Connect to TEENIX97</button>
-        <p id="status" class="status">Ready to connect</p>
+        <button id="connect" class="primary" aria-busy="false"><span id="connectSpinner" class="connect-spinner" aria-hidden="true" hidden></span><span id="connectLabel">Connect to TEENIX97</span></button>
+        <p id="status" class="status" role="status" aria-live="polite" aria-atomic="true">Ready to connect</p>
         <p class="hint">Pair TEENIX97 in macOS or Windows Bluetooth settings first. Chrome will then show it in the serial-device chooser.</p>
       </section>
 
@@ -41,7 +41,7 @@
       </nav>
 
       <button id="helpButton" class="secondary full">Help</button>
-      <p class="version">Web milestone 5 · v0.5.0</p>
+      <p class="version">Web milestone 5 · v0.5.1</p>
     </aside>
 
     <main>
@@ -227,6 +227,6 @@
     <button id="closeHelp" class="primary">Close</button>
   </dialog>
 
-  <script type="module" src="app.js?v=0.5.0"></script>
+  <script type="module" src="app.js?v=0.5.1"></script>
 </body>
 </html>

@@ -30,9 +30,11 @@ If deployment fails, open the failed step in Actions for its explanation. Pages 
 3. Pair TEENIX97 in macOS or Windows Bluetooth settings, then choose **Connect to TEENIX97** in the app and select the board in Chrome's chooser.
 4. Choose **Read settings** to verify HP-97 firmware 21 before using the other functions.
 
+The Connect button shows a spinner and **Connecting…** while the device chooser or Bluetooth connection is pending. After choosing a device, the status explains that Teenio is opening the connection. The indicator clears on success, cancellation, failure or disconnect, and repeated connection clicks are disabled. Reduced-motion preferences keep the indicator static; connection status is also announced to screen readers.
+
 The hosted app communicates directly with your selected calculator through Chrome's Web Serial API. You grant access separately for the hosted website; a connection granted to `localhost` or a local file does not automatically transfer to it. You can install the hosted app using Chrome's installation control when available. Single-slot writing still requires choosing a destination backup file.
 
-## Current functionality — v0.5.0
+## Current functionality — v0.5.1
 
 `Web/` contains the browser companion. It uses Chrome's Web Serial API to open the Serial Port Profile on a paired Bluetooth Classic TEENIX97. It provides an installable offline interface, live or Demo connection, the firmware-21 information/settings query, clock read and guarded time/date setting with read-back, and the complete 448-byte active-memory transfer. The memory view decodes all sixteen primary registers and all 224 program positions, and exports both the memory report and aligned program listing.
 
@@ -60,6 +62,8 @@ Demo writes use the same backup-validation and comparison workflow with temporar
 **Web verification:** 39 automated checks pass, including the physical marker-61 capture and HPP round trip, exact write packet sequence, saved-backup validation, cancellation/save failure, disconnect during backup, frozen source, malformed acknowledgements, mismatched read-back and isolation of the offline cache from other Pages projects. Browser Demo checks covered cancelling a write review, writing a source from slot 00 to vacant slot 49, checking the backup and read-back result, and opening/exporting the saved physical Lucas–Lehmer capture. The writer follows the native app's hardware-tested command-04 exchange, but a physical upload through this web implementation has **not yet been verified**. No physical calculator slot was changed during these web checks.
 
 **23 September 2026 verification:** the hosted v0.4.0 session showed verified HP-97 firmware 21, a successful clock read and a complete 448-byte active-memory transfer. Version 0.5.0 adds nine automated checks for memory report import and card preparation. Tests reproduce an independently captured physical card body and both original extended Lucas–Lehmer HPP bodies, preserve all 224 positions, exclude numeric registers, reject malformed captures/templates, and retain Demo provenance. Separate browser checks cover Demo preparation, both downloaded files, native memory-report import, source-change invalidation and rejection without losing the previous capture. The newly exported pair still needs a physical load/run check; no write or clock change was made on the connected calculator during this development work.
+
+The v0.5.1 connection indicator was checked in a separate browser preview using a simulated serial device: waiting for selection, opening the port, success, cancellation, failure and disconnect. The spinner clears and the button becomes usable again when the attempt ends. These UI checks did not open a physical Bluetooth connection; all 39 existing automated checks also pass.
 
 ## Run locally
 
