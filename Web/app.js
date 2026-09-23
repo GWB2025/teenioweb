@@ -34,8 +34,12 @@ import { saveBackupFile, writeBackedUpSlot } from "./storage-writing.js?v=0.5.0"
 import { loadMemoryReport, prepareMemoryCards } from "./memory-cards.js?v=0.6.0";
 import { compareLoadedProgram, encodeProgramBackup, loadProgramBackup, programBytesFromCards, uploadProgramPair, validatePairLocation } from "./program-upload.js?v=0.6.0";
 import { WebSerialTransport } from "./serial.js?v=0.5.1";
+import { HP97SController, DemoHP97SDevice, encodeHP97SEntry } from "./hp97s.js?v=0.7.0";
 
 const elements = Object.fromEntries(Array.from(document.querySelectorAll("[id]"), element => [element.id, element]));
+function hp97sRecoverySaved() {
+  try { return sessionStorage.getItem("teenio.hp97sRecovery") === "true"; } catch { return false; }
+}
 const state = {
   connected: false,
   connecting: false,
@@ -64,9 +68,15 @@ const state = {
   demoClock: { value: new Date(), reference: performance.now() },
   logs: [],
   installPrompt: null,
+  hp97s: null,
+  hp97sDemo: null,
+  hp97sReview: null,
+  hp97sLogs: [],
+  hp97sRecovery: hp97sRecoverySaved(),
 };
 
-function locked() { return Boolean(state.busy || state.writeJob || state.closing || state.verifying); }
+function baseLocked() { return Boolean(state.busy || state.writeJob || state.closing || state.verifying || state.hp97sReview); }
+function locked() { return baseLocked() || Boolean(state.hp97s?.blocksNormalCommands) || state.hp97sRecovery; }
 
 function timestamp() {
   return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date());
@@ -312,6 +322,154 @@ function renderStorage() {
   elements.storedCard.replaceChildren(summary);
 }
 
+function logHP97S(message) {
+  const prefix = elements.demo.checked ? "DEMO HP-97S" : "HP-97S";
+  state.hp97sLogs.push(`${timestamp()}  ${prefix} · ${message}`);
+  state.hp97sLogs = state.hp97sLogs.slice(-400);
+  elements.hp97sLog.textContent = state.hp97sLogs.join("\n");
+  elements.hp97sLog.scrollTop = elements.hp97sLog.scrollHeight;
+  elements.hp97sSaveLog.disabled = false;
+  log(`${prefix} · ${message}`);
+}
+
+function hp97sEntry() {
+  try { return { entry: encodeHP97SEntry(elements.hp97sDigits.value) }; }
+  catch (error) { return { error: error.message }; }
+}
+
+function renderHP97S() {
+  const controller = state.hp97s;
+  const mode = controller?.mode ?? "off";
+  const busy = baseLocked() || Boolean(controller?.busy);
+  const readyForMode = state.connected && (verifiedFirmware() || mode === "on") && !state.hp97sRecovery;
+  const enabled = readyForMode && mode === "on" && !busy;
+  elements.hp97sToggle.textContent = mode === "entering" ? "Turning on…" : mode === "leaving" ? "Turning off…" : mode === "on" ? "Turn interface off" : "Turn interface on";
+  elements.hp97sToggle.disabled = !readyForMode || busy || mode === "fault";
+  elements.hp97sToggle.title = mode === "on" ? "Leave HP-97S mode and wait for confirmation before resuming normal calculator commands." : "Enter CalCom-compatible HP-97S test mode over this connection. The calculator must be in RUN mode.";
+  elements.hp97sReadStatus.disabled = !enabled;
+  elements.hp97sDigits.disabled = busy || mode === "fault" || state.hp97sRecovery;
+  const { entry, error } = hp97sEntry();
+  elements.hp97sSend.disabled = !enabled || !entry;
+  elements.hp97sPreview.textContent = entry ? `${entry.codes.length - 1}/9 keys · ${entry.labels.join(" → ")}` : error;
+  elements.hp97sPreview.dataset.tone = entry ? "neutral" : "error";
+  document.querySelectorAll("[data-hp97s-key]").forEach(button => { button.disabled = elements.hp97sDigits.disabled; });
+  elements.hp97sMode.textContent = state.hp97sRecovery || mode === "fault" ? "Recovery required" : mode === "off" ? "Off" : mode === "on" ? "On" : "Changing mode…";
+  const status = mode === "on" ? controller?.status : null;
+  elements.hp97sReady.textContent = status ? (status.ready ? "Yes" : "No") : "Unknown";
+  for (let bit = 0; bit < 4; bit++) elements[`hp97sFlag${bit}`].textContent = status ? (status.flags[bit] ? "Set" : "Clear") : "Unknown";
+  elements.hp97sRequirement.textContent = state.hp97sRecovery || mode === "fault"
+    ? "The previous exchange did not finish safely. Disconnect, switch the calculator off/on, restore its Bluetooth connection mode, then confirm recovery below before reconnecting. No transfer is retried."
+    : !state.connected ? "Connect and read settings first. Demo mode is available without a calculator."
+    : mode === "on" ? "HP-97S mode owns this connection. Turn it off to use normal settings, clock, memory and card operations."
+    : !verifiedFirmware() ? "Read settings to verify HP-97 firmware 21 before turning on the interface."
+    : "Put the calculator in RUN mode, then turn the interface on. Live HP-97S behaviour still needs a hardware check.";
+  elements.hp97sRecoveryPanel.hidden = !state.hp97sRecovery && mode !== "fault";
+  elements.hp97sRecovered.disabled = state.connected || busy;
+  elements.hp97sRecovered.textContent = elements.demo.checked ? "Reset Demo interface" : "I have restarted the calculator";
+  elements.hp97sDemoControls.hidden = !elements.demo.checked;
+  document.querySelectorAll("[data-hp97s-flag]").forEach(button => { button.disabled = !enabled; });
+  elements.hp97sSaveLog.disabled = !state.hp97sLogs.length;
+  elements.hp97sConfirm.disabled = !state.hp97sReview || !state.connected || mode !== "on" || Boolean(controller?.busy);
+  elements.hp97sNotice.hidden = !controller?.blocksNormalCommands && !state.hp97sRecovery;
+}
+
+function createHP97S() {
+  const session = state.session;
+  const simulated = elements.demo.checked;
+  const peer = simulated ? new DemoHP97SDevice() : null;
+  state.hp97sDemo = peer;
+  const controller = new HP97SController({
+    write: packet => {
+      if (!state.connected || state.session !== session || elements.demo.checked !== simulated) throw new Error("The calculator connection changed.");
+      if (peer) {
+        const response = peer.write(packet);
+        queueMicrotask(() => { if (state.session === session && state.hp97s === controller) controller.receive(response); });
+        return;
+      }
+      return state.transport.write(packet);
+    },
+    onLog: logHP97S,
+    onChange: current => {
+      if (state.hp97s !== current) return;
+      if (!simulated) {
+        try {
+          if (current.mode !== "off") sessionStorage.setItem("teenio.hp97sRecovery", "true");
+          else if (!state.hp97sRecovery) sessionStorage.removeItem("teenio.hp97sRecovery");
+        } catch { /* The unload warning and in-session recovery remain available. */ }
+      }
+      if (current.mode === "fault") {
+        state.hp97sRecovery = true;
+        state.hp97sReview = null;
+        elements.hp97sSendDialog.close();
+        elements.hp97sMessage.textContent = `${current.error.message} Stop and recover the calculator connection; completion is uncertain.`;
+        setStatus("HP-97S exchange stopped · recovery required", "error");
+      }
+      render();
+    },
+  });
+  state.hp97s = controller;
+  return controller;
+}
+
+async function hp97sAction(action) {
+  if (!state.connected || (!verifiedFirmware() && state.hp97s?.mode !== "on") || baseLocked() || state.hp97sRecovery || state.hp97s?.busy) return;
+  const controller = state.hp97s ?? createHP97S();
+  try {
+    if (action === "toggle") {
+      if (controller.mode === "on") await controller.leave(); else await controller.enter();
+      elements.hp97sMessage.textContent = controller.mode === "on" ? "Interface on. Choose Read status to check readiness and flags." : "Interface off. Normal calculator functions are available.";
+      setStatus(`HP-97S interface ${controller.mode === "on" ? "on" : "off"}`, "success");
+    } else {
+      const status = await controller.readStatus();
+      elements.hp97sMessage.textContent = status.ready ? "The calculator reports that it is ready for a transfer." : "The calculator is not ready. Check RUN mode, program activity and Flag 3.";
+      setStatus(status.ready ? "HP-97S ready" : "HP-97S not ready", status.ready ? "success" : "neutral");
+    }
+  } catch (error) { elements.hp97sMessage.textContent = error.message; setStatus(error.message, "error"); logHP97S(error.message); }
+  render();
+}
+
+function reviewHP97SSend() {
+  if (baseLocked() || state.hp97sRecovery || !state.connected || state.hp97s?.mode !== "on" || state.hp97s.busy) return;
+  const { entry } = hp97sEntry();
+  if (!entry) return;
+  state.hp97sReview = { entry, session: state.session, controller: state.hp97s, simulated: elements.demo.checked };
+  elements.hp97sSendReview.textContent = `${elements.demo.checked ? "Send to the Demo interface" : "Send these keys to the connected HP-97"}: ${entry.labels.join(" → ")}. ${entry.runsProgram ? "Run A requests execution of the program at label A. " : ""}${elements.demo.checked ? "Demo records the keys and simulates flags; it does not execute calculator programs." : "This changes calculator key-entry data and may affect X, the stack and flags. The current memory view and pending upload comparison will be cleared; save any wanted capture before continuing."}`;
+  render();
+  elements.hp97sSendDialog.showModal();
+}
+
+async function confirmHP97SSend() {
+  const review = state.hp97sReview;
+  state.hp97sReview = null;
+  elements.hp97sSendDialog.close();
+  if (!review || review.session !== state.session || review.controller !== state.hp97s || !state.connected ||
+      review.simulated !== elements.demo.checked || baseLocked() || state.hp97sRecovery || state.hp97s.busy || state.hp97s.mode !== "on") { render(); return; }
+  // Old captures and pending upload comparisons no longer describe current key-entry state.
+  if (!review.simulated) {
+    state.programLoad = null;
+    state.memoryReading = null;
+    state.preparedProgram = null;
+    state.reading = null;
+    state.clockVerified = false;
+    elements.memoryMessage.textContent = "HP-97S input may change calculator state. Turn the interface off, then read settings and memory again.";
+  }
+  try {
+    const entry = await review.controller.send(review.entry.text);
+    elements.hp97sMessage.textContent = `${review.simulated ? "DEMO · " : ""}Keys accepted: ${entry.labels.join(" → ")}. Read status again for fresh flags. ${review.simulated ? "Demo does not execute programs or change the separate Demo memory capture." : "Check the calculator display; acknowledgement does not verify its value or program result."}`;
+    setStatus("HP-97S key transfer accepted", "success");
+  } catch (error) { elements.hp97sMessage.textContent = error.message; setStatus(error.message, "error"); logHP97S(error.message); }
+  render();
+}
+
+async function userDisconnect() {
+  if (baseLocked() || state.hp97s?.busy) return;
+  if (state.hp97s?.mode === "on") {
+    try { await state.hp97s.leave(); }
+    catch { /* Disconnect below; recovery remains required after an uncertain exit. */ }
+  }
+  await disconnect();
+}
+
 function render() {
   elements.connectLabel.textContent = state.connecting ? "Connecting…" : state.connected ? "Disconnect" : "Connect to TEENIX97";
   elements.connect.title = state.closing ? "Closing the connection and releasing the serial port."
@@ -321,7 +479,7 @@ function render() {
     : "Choose the paired TEENIX97 in the browser’s device chooser and open its Bluetooth serial connection.";
   elements.connectSpinner.hidden = !state.connecting;
   elements.connect.setAttribute("aria-busy", String(state.connecting));
-  elements.connect.disabled = locked();
+  elements.connect.disabled = baseLocked() || Boolean(state.hp97s?.busy) || (!state.connected && state.hp97sRecovery);
   elements.readSettings.disabled = !state.connected || locked();
   elements.saveSettings.disabled = !state.reading;
   elements.demo.disabled = locked();
@@ -337,6 +495,7 @@ function render() {
   renderStorage();
   renderProgramExport();
   renderPairUpload();
+  renderHP97S();
 }
 
 function showPage(name) {
@@ -381,6 +540,11 @@ async function sendPacket(packet, label, showBytes = true) {
 async function handleReceived(bytes) {
   state.bytesReceived += bytes.length;
   log(`Received ${bytes.length} byte${bytes.length === 1 ? "" : "s"}: ${hex(bytes)}`);
+  if (state.hp97s?.blocksNormalCommands) {
+    state.hp97s.receive(bytes);
+    elements.bytes.textContent = String(state.bytesReceived);
+    return;
+  }
   const pending = state.pending;
   if (!pending) {
     render();
@@ -500,6 +664,11 @@ async function disconnect(reason = "Disconnected") {
   state.connected = false;
   state.connecting = false;
   state.closing = true;
+  if (state.hp97s?.close()) state.hp97sRecovery = true;
+  state.hp97s = null;
+  state.hp97sDemo = null;
+  state.hp97sReview = null;
+  elements.hp97sSendDialog.close();
   if (state.pending?.timer) clearTimeout(state.pending.timer);
   state.pending = null;
   pending?.onError?.(new Error(reason));
@@ -519,6 +688,7 @@ async function disconnect(reason = "Disconnected") {
 }
 
 async function readSettings() {
+  if (locked() || !state.connected) return;
   state.busy = true;
   setStatus("Reading calculator information…");
   render();
@@ -544,6 +714,7 @@ async function readSettings() {
 }
 
 async function startTransfer({ decoder, command, label, status, timeoutMessage, logPackets = true, onComplete, onError }) {
+  if (state.hp97s?.blocksNormalCommands || state.hp97sRecovery) throw new Error("Turn off the HP-97S interface before using normal calculator commands.");
   state.busy = true;
   setStatus(status);
   state.pending = {
@@ -1028,7 +1199,36 @@ function safeFilename(name, fallback) {
   return safe || fallback;
 }
 
-elements.connect.addEventListener("click", () => state.connected ? void disconnect() : void connect());
+elements.connect.addEventListener("click", () => state.connected ? void userDisconnect() : void connect());
+elements.hp97sToggle.addEventListener("click", () => void hp97sAction("toggle"));
+elements.hp97sReadStatus.addEventListener("click", () => void hp97sAction("status"));
+elements.hp97sDigits.addEventListener("input", renderHP97S);
+elements.hp97sSend.addEventListener("click", reviewHP97SSend);
+elements.hp97sConfirm.addEventListener("click", () => void confirmHP97SSend());
+elements.hp97sCancel.addEventListener("click", () => elements.hp97sSendDialog.close());
+elements.hp97sSendDialog.addEventListener("close", () => { state.hp97sReview = null; render(); });
+elements.hp97sClearLog.addEventListener("click", () => { state.hp97sLogs = []; elements.hp97sLog.textContent = ""; renderHP97S(); });
+elements.hp97sSaveLog.addEventListener("click", () => download(`Teenio-${elements.demo.checked ? "Demo-" : ""}HP97S.log.txt`, `${state.hp97sLogs.join("\n")}\n`));
+elements.hp97sRecovered.addEventListener("click", () => {
+  if (state.connected || baseLocked()) return;
+  state.hp97sRecovery = false;
+  try { sessionStorage.removeItem("teenio.hp97sRecovery"); } catch { /* Storage can be unavailable. */ }
+  elements.hp97sMessage.textContent = elements.demo.checked ? "Demo interface reset. Reconnect to continue." : "Recovery acknowledged. Reconnect and read settings before enabling HP-97S again.";
+  render();
+});
+document.querySelectorAll("[data-hp97s-key]").forEach(button => button.addEventListener("click", () => {
+  if (elements.hp97sDigits.disabled) return;
+  const field = elements.hp97sDigits;
+  const start = field.selectionStart ?? field.value.length;
+  const end = field.selectionEnd ?? start;
+  field.setRangeText(button.dataset.hp97sKey, start, end, "end");
+  field.focus();
+  renderHP97S();
+}));
+document.querySelectorAll("[data-hp97s-flag]").forEach(button => button.addEventListener("click", () => {
+  if (!elements.demo.checked || baseLocked() || state.hp97s?.mode !== "on" || state.hp97s.busy) return;
+  state.hp97s.receive(state.hp97sDemo.toggleFlag(Number(button.dataset.hp97sFlag)));
+}));
 elements.readSettings.addEventListener("click", () => void readSettings());
 elements.readClock.addEventListener("click", () => void readClock());
 elements.setClock.addEventListener("click", () => void setClock());
@@ -1163,7 +1363,7 @@ window.addEventListener("beforeinstallprompt", event => {
 });
 window.addEventListener("appinstalled", () => { elements.install.hidden = true; log("Teenio Web installed."); });
 window.addEventListener("beforeunload", event => {
-  if (state.writeJob?.started) {
+  if (state.writeJob?.started || state.hp97s?.blocksNormalCommands) {
     event.preventDefault();
     event.returnValue = "";
   } else if (state.connected && !elements.demo.checked) void state.transport?.disconnect();

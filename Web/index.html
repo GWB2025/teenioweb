@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="styles.css?v=0.6.0">
+  <link rel="stylesheet" href="styles.css?v=0.7.0">
   <title>Teenio Web · HP-97</title>
 </head>
 <body>
@@ -38,15 +38,20 @@
         <button data-page="clock" title="Show the board clock and date/time controls. Choose Read clock to request the current time.">Clock</button>
         <button data-page="memory" title="View the captured registers, program listing and raw RAM, or prepare two program cards.">Memory & registers</button>
         <button data-page="programs" title="Browse card storage, read or import cards, and manage backed-up uploads.">Stored programs</button>
+        <button data-page="hp97s" title="Use the CalCom-compatible HP-97S interface to check flags and send calculator keys over this connection.">HP-97S interface</button>
       </nav>
 
-      <button id="helpButton" class="secondary full" title="Open instructions for connecting, clock controls, memory, stored cards, uploads and backups.">Help</button>
-      <p class="version">Web milestone 6 · v0.6.1</p>
+      <button id="helpButton" class="secondary full" title="Open instructions for connecting, clock controls, memory, stored cards, uploads, backups and the HP-97S interface.">Help</button>
+      <p class="version">Web milestone 7 · v0.7.0</p>
     </aside>
 
     <main>
       <div id="compatibility" class="notice error" hidden>
         This browser does not expose Web Serial. Open Teenio Web in Chrome 117 or later on a desktop computer.
+      </div>
+      <div id="hp97sNotice" class="notice hp97s-notice" hidden>
+        Normal calculator commands are paused until the HP-97S interface is off or its connection has been recovered.
+        <button data-page="hp97s" class="secondary" title="Return to the HP-97S controls to turn the interface off or recover an interrupted exchange.">Open HP-97S interface</button>
       </div>
 
       <section id="page-settings" class="page">
@@ -209,6 +214,65 @@
         </article>
       </section>
 
+      <section id="page-hp97s" class="page" hidden>
+        <div class="page-title">
+          <div><p class="eyebrow">Calculator data entry</p><h2>HP-97S interface</h2></div>
+          <button id="hp97sToggle" class="primary" disabled title="Enter CalCom-compatible HP-97S test mode over the current connection. The calculator must be in RUN mode.">Turn interface on</button>
+        </div>
+        <article class="panel feature-panel">
+          <p class="hint">Use the existing Bluetooth connection to read flags and send keys, as in CalCom’s HP-97S pane. No external equipment or second connection is needed.</p>
+          <p id="hp97sRequirement" class="caption"></p>
+          <div class="hp97s-status" aria-live="polite" aria-atomic="true">
+            <div><span>Interface</span><strong id="hp97sMode" title="Whether Teenio has received confirmation that HP-97S mode is on or off.">Off</strong></div>
+            <div><span>Ready</span><strong id="hp97sReady" title="Readiness from the latest status reply or flag notification. Teenio checks it again before every transfer.">Unknown</strong></div>
+            <div><span>Flag 3</span><strong id="hp97sFlag3" title="Calculator Flag 3 from the latest status. This is a readout, not a switch.">Unknown</strong></div>
+            <div><span>Flag 2</span><strong id="hp97sFlag2" title="Calculator Flag 2 from the latest status. This is a readout, not a switch.">Unknown</strong></div>
+            <div><span>Flag 1</span><strong id="hp97sFlag1" title="Calculator Flag 1 from the latest status. This is a readout, not a switch.">Unknown</strong></div>
+            <div><span>Flag 0</span><strong id="hp97sFlag0" title="Calculator Flag 0 from the latest status. This is a readout, not a switch.">Unknown</strong></div>
+          </div>
+          <button id="hp97sReadStatus" class="secondary" disabled title="Request fresh Ready and Flag 3–0 values without sending calculator keys.">Read status</button>
+          <div id="hp97sRecoveryPanel" class="hp97s-recovery" hidden>
+            <p>After an interrupted exchange, disconnect here and restart the calculator before reconnecting. Partial key entry may remain; check the display and program state. Teenio does not resend the entry.</p>
+            <button id="hp97sRecovered" class="secondary" disabled title="After disconnecting and restarting the calculator, clear this page’s recovery lock so you can reconnect.">I have restarted the calculator</button>
+          </div>
+        </article>
+        <article class="panel feature-panel">
+          <h3>Send digits and keys</h3>
+          <div class="hp97s-entry">
+            <label for="hp97sDigits">Entry <span class="hint">· up to nine digits or keys</span></label>
+            <input id="hp97sDigits" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="For example, 34.27" aria-describedby="hp97sLegend hp97sPreview" title="Enter digits 0–9, a decimal point, X for exponent, E for ENTER, S for change sign, or A to run from label A. Run A must be last. Nothing is sent while typing.">
+            <div class="hp97s-keys" role="group" aria-label="Insert a calculator key">
+              <button class="secondary" data-hp97s-key="." title="Insert a decimal point in the entry. This does not send it.">. Decimal</button>
+              <button class="secondary" data-hp97s-key="X" title="Insert X for exponent entry. This does not send it.">X Exponent</button>
+              <button class="secondary" data-hp97s-key="E" title="Insert E for the calculator’s ENTER key. This does not send it.">E Enter</button>
+              <button class="secondary" data-hp97s-key="S" title="Insert S to change sign. This does not send it.">S Change sign</button>
+              <button class="secondary" data-hp97s-key="A" title="Insert A to run the program at label A. It must be the last key. Review the entry before sending.">A Run from A</button>
+            </div>
+            <p id="hp97sLegend" class="hint">Use digits 0–9 and the keys above. Teenio adds the final N (end) symbol automatically. Each symbol counts as one key.</p>
+            <p id="hp97sPreview" class="caption" role="status"></p>
+            <button id="hp97sSend" class="primary" disabled title="Review the keys before sending. Teenio checks Ready, waits for each acknowledgement and never retries automatically.">Review and send…</button>
+          </div>
+          <p id="hp97sMessage" class="caption" role="status">Sending keys can change X, the stack and flags. Run A starts the program at label A. Check results on the calculator display.</p>
+          <details id="hp97sDemoControls" class="backup-tools" hidden>
+            <summary title="Show simulated flag controls. These are available only in Demo mode and never send Bluetooth commands.">Demo flag controls</summary>
+            <p class="hint">Demo records the keys and simulates replies; it does not execute programs or change the separate Demo memory capture. A transfer without Run A sets Flag 3. Clear it here to make Demo ready again.</p>
+            <div class="hp97s-keys">
+              <button class="secondary" data-hp97s-flag="3" title="Toggle simulated Flag 3 and send a Demo notification. Set means not ready; clear means ready.">Toggle Flag 3</button>
+              <button class="secondary" data-hp97s-flag="2" title="Toggle simulated Flag 2 and show its unsolicited status notification.">Toggle Flag 2</button>
+              <button class="secondary" data-hp97s-flag="1" title="Toggle simulated Flag 1 and show its unsolicited status notification.">Toggle Flag 1</button>
+              <button class="secondary" data-hp97s-flag="0" title="Toggle simulated Flag 0 and show its unsolicited status notification.">Toggle Flag 0</button>
+            </div>
+          </details>
+        </article>
+        <article class="panel feature-panel">
+          <div class="panel-heading"><h3>HP-97S activity</h3><div>
+            <button id="hp97sSaveLog" class="secondary" disabled title="Download the HP-97S command, reply and status log. Demo entries are labelled.">Save log</button>
+            <button id="hp97sClearLog" class="secondary" title="Clear only this HP-97S log. This does not clear calculator keys, memory or flags. The connection log is kept separately.">Clear log</button>
+          </div></div>
+          <pre id="hp97sLog" tabindex="0" aria-label="HP-97S activity log" title="Sent commands and received replies in hexadecimal, with timestamps and explanations."></pre>
+        </article>
+      </section>
+
       <section class="activity-panel">
         <div class="panel-heading"><h3>Connection activity</h3><div><button id="saveLog" class="secondary" disabled title="Download the current connection and transfer activity as a text log for troubleshooting.">Save log</button><button id="clearLog" class="secondary" title="Clear only the displayed activity log. This does not disconnect or change calculator data.">Clear</button></div></div>
         <pre id="activity" aria-live="polite" title="Connection events and transfer replies, with timestamps. Use Save log to keep a copy."></pre>
@@ -234,6 +298,17 @@
     <p>Teenio saves and checks the complete backup, writes card 1 and verifies it, then writes and verifies card 2. A failure stops the upload; it does not retry or restore automatically. The pair may be incomplete if writing has started.</p>
     <p>Keep the calculator powered and leave its controls untouched during the upload. Demo mode keeps its backup in memory until you save a copy.</p>
     <div class="card-actions"><button id="cancelPair" class="secondary" autofocus title="Close this review without starting the backups or writing either card.">Cancel</button><button id="confirmPair" class="primary" title="Choose a backup file, save and check both destination slots and active memory, then write and verify both cards.">Choose backup file and upload</button></div>
+  </dialog>
+
+  <dialog id="hp97sSendDialog" aria-labelledby="hp97sSendTitle" aria-describedby="hp97sSendReview">
+    <p class="eyebrow">HP-97S key entry</p>
+    <h2 id="hp97sSendTitle">Review calculator keys</h2>
+    <p id="hp97sSendReview"></p>
+    <p>Keep the calculator in RUN mode and do not press its keys during the transfer. A successful reply confirms acceptance, not the displayed value or program result.</p>
+    <div class="card-actions">
+      <button id="hp97sCancel" class="secondary" autofocus title="Close this review without sending any keys.">Cancel</button>
+      <button id="hp97sConfirm" class="primary" title="Check readiness, then send exactly the reviewed keys and the final end symbol, one at a time.">Send reviewed keys</button>
+    </div>
   </dialog>
 
   <dialog id="help">
@@ -282,6 +357,18 @@
     <p>In Demo mode, uploading changes only stored cards. Use <strong>Simulate loading both cards</strong> before verifying; verification alone never loads them. Save the Demo upload backup to keep it after closing the page.</p>
     <h2>Keep and reopen upload backups</h2>
     <p>Under <strong>Two-card backup files</strong>, open a saved upload backup (.json) and extract its full memory report or either original .calcom-slot capture. The file includes checksums for all three captures, including vacant or unrecognised slots. Opening it neither restores calculator data nor resumes a pending verification. Valid original program cards can be restored through the single-slot write workflow; restoration of vacant or unrecognised slots and numeric-register writing are not implemented.</p>
+    <h2>HP-97S interface</h2>
+    <ol>
+      <li>Connect and <strong>Read settings</strong> to identify HP-97 firmware 21. Choose <strong>HP-97S interface</strong>, put the calculator in RUN mode, and choose <strong>Turn interface on</strong>.</li>
+      <li>Choose <strong>Read status</strong> to see Ready and Flags 3–0. Idle flag notifications also update these readouts. Normal settings, clock, memory and card commands are paused while this mode is on.</li>
+      <li>Type up to nine digits or keys. Use <strong>.</strong> for decimal point, <strong>X</strong> for exponent, <strong>E</strong> for ENTER, <strong>S</strong> for change sign and <strong>A</strong> for Run from A. Run A must be last. Teenio adds the tenth end symbol (N); you may also type one N at the end. Spaces, minus signs and other characters are rejected rather than silently changed.</li>
+      <li>Choose <strong>Review and send…</strong>, check the entry, then <strong>Send reviewed keys</strong>. Teenio freshly checks Ready before sending and waits for a reply to each key. If not ready, no keys are sent. Check RUN mode, whether a program is busy and Flag 3; then read status again.</li>
+      <li>Check the calculator display. Accepted keys may change X, the stack and flags. Run A executes the program at label A; the interface does not return its result. After live input, old memory captures and pending upload comparisons are cleared. Turn the interface off and read settings and memory again to obtain current values.</li>
+      <li>Choose <strong>Turn interface off</strong> when finished. Disconnect also requests a confirmed mode exit when idle. Do not close or reload the page while this mode is active.</li>
+    </ol>
+    <p><strong>Interrupted exchange:</strong> a timeout, unexpected reply or lost connection stops the exchange without retrying. Some keys may already have been accepted. Disconnect, switch the calculator off/on, restore Bluetooth connection mode, then choose <strong>I have restarted the calculator</strong> before reconnecting. The same tab remembers an unfinished live mode across a reload. Inspect the calculator before repeating any entry.</p>
+    <p><strong>Demo:</strong> follows the same command/acknowledgement sequence without Bluetooth. It records keys and simulates flags and readiness; it is not a calculator emulator. After sending without Run A, expand <strong>Demo flag controls</strong> and clear Flag 3 to make it ready again. These controls do not exist for a live calculator.</p>
+    <p>This implements CalCom’s PC test mode through the existing connection. The separate isolated external-equipment connector is not opened or configured. HP-97S hardware behaviour still needs verification. Unverified notifications arriving during a key transfer cause a stop, rather than being guessed at. <strong>Clear log</strong> clears only the display log; it never clears calculator data.</p>
     <h2>Privacy and safety</h2>
     <p>This milestone runs locally in your browser. It sends calculator bytes only through the serial device you select and does not upload them to a server. Demo mode never opens Bluetooth.</p>
     <h2>Acknowledgements</h2>
@@ -289,6 +376,6 @@
     <button id="closeHelp" class="primary" title="Close Help and return to the current Teenio screen.">Close</button>
   </dialog>
 
-  <script type="module" src="app.js?v=0.6.1"></script>
+  <script type="module" src="app.js?v=0.7.0"></script>
 </body>
 </html>

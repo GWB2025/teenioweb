@@ -95,6 +95,21 @@ main { min-width: 0; padding: 34px; background: #fbfcfe; }
 #activity { min-height: 170px; max-height: 300px; margin: 16px 0 0; padding: 16px; overflow: auto; border-radius: 10px; color: #dfe8fb; background: #121b30; font: .75rem/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
 .notice { margin-bottom: 20px; padding: 13px 15px; border-radius: 10px; }
 .notice.error { color: #78202a; background: #ffe9eb; }
+.hp97s-notice { color: #224fae; background: #eaf0ff; font-size: .85rem; line-height: 1.6; }
+.hp97s-notice button { margin-top: 10px; }
+.hp97s-status { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 20px 0; }
+.hp97s-status > div { padding: 14px; border-radius: 9px; background: var(--soft); }
+.hp97s-status span { display: block; margin-bottom: 6px; color: var(--muted); font-size: .78rem; }
+.hp97s-status strong { overflow-wrap: anywhere; }
+.hp97s-entry { display: grid; gap: 14px; margin-top: 20px; }
+.hp97s-entry label { font-size: .85rem; font-weight: 700; }
+.hp97s-entry input { min-width: 0; width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 8px; font: 1.2rem ui-monospace, SFMono-Regular, Menlo, monospace; }
+.hp97s-entry p { margin: 0; }
+.hp97s-entry > button { justify-self: start; }
+.hp97s-keys { display: flex; flex-wrap: wrap; gap: 8px; }
+.hp97s-recovery { margin-top: 18px; padding: 16px; border-radius: 9px; background: #fff1e2; font-size: .85rem; line-height: 1.5; }
+#hp97sPreview[data-tone="error"] { color: var(--red); }
+#hp97sLog { min-height: 130px; max-height: 280px; margin: 18px 0 0; padding: 16px; border-radius: 10px; overflow: auto; background: #121b30; color: #dfe8fb; font: .75rem/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
 .placeholder { max-width: 760px; }
 .placeholder p:last-child { color: var(--muted); line-height: 1.65; }
 .clock-display { display: grid; gap: 7px; margin: 24px 0; padding: 22px; border-radius: 12px; background: var(--soft); }
@@ -156,6 +171,7 @@ dialog li, dialog p { line-height: 1.6; }
   nav { grid-template-columns: repeat(2, 1fr); }
   main { padding: 22px 16px; }
   .metrics { grid-template-columns: 1fr; }
+  .hp97s-status { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .register-row { grid-template-columns: 30px 1fr; }
   .register-row .raw { grid-column: 2; text-align: left; }
   .listing-row { grid-template-columns: 40px 34px 1fr; }

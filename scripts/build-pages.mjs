@@ -7,7 +7,7 @@ const output = resolve(root, "_site");
 // Publish only app assets, never test fixtures, local captures or repository files.
 const assets = [
   "index.html", "styles.css", "app.js", "protocol.js", "calculator.js",
-  "program-table.js", "stored-programs.js", "storage-writing.js", "memory-cards.js", "program-upload.js", "serial.js",
+  "program-table.js", "stored-programs.js", "storage-writing.js", "memory-cards.js", "program-upload.js", "serial.js", "hp97s.js",
   "sw.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png",
 ];
 

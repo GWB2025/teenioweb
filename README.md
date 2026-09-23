@@ -1,6 +1,6 @@
 # Teenio Web
 
-A browser-based companion for the TEENIX97 HP-97 calculator board, with Bluetooth connectivity, program backup and transfer, memory and register viewing, clock controls, and Demo mode.
+A browser-based companion for the TEENIX97 HP-97 calculator board, with Bluetooth connectivity, program backup and transfer, memory and register viewing, clock controls, an HP-97S interface, and Demo mode.
 
 [**▶ Launch Teenio Web**](https://gwb2025.github.io/teenioweb/)
 
@@ -34,7 +34,26 @@ The Connect button shows a spinner and **Connecting…** while the device choose
 
 The hosted app communicates directly with your selected calculator through Chrome's Web Serial API. You grant access separately for the hosted website; a connection granted to `localhost` or a local file does not automatically transfer to it. You can install the hosted app using Chrome's installation control when available. Live single-slot and two-card writing require choosing a destination backup file.
 
-## Current functionality — v0.6.1
+## Current functionality — v0.7.0
+
+**HP-97S interface:** the new panel implements CalCom’s PC test mode through the existing Bluetooth connection. No external equipment or second serial connection is needed. It provides confirmed on/off controls, fresh Ready and Flag 3–0 readings, idle flag notifications, digit/key entry with a review before sending, and a separate downloadable activity log with tooltips and Help.
+
+1. Connect and **Read settings** to verify HP-97 firmware 21. In **HP-97S interface**, put the calculator in RUN mode and choose **Turn interface on**.
+2. Choose **Read status**. The interface pauses normal settings, clock, memory and stored-card commands until it has confirmed that the mode is off.
+3. Enter up to nine digits or keys: `0–9`, `.` (decimal), `X` (exponent), `E` (ENTER), `S` (change sign), and `A` (Run from label A). Run A must be last. Teenio automatically adds the final `N`/NOP symbol; an explicit final N is also accepted. Invalid input is rejected without sending anything.
+4. Choose **Review and send…**, check the decoded keys, then **Send reviewed keys**. Teenio makes a fresh readiness query, waits for a prompt before each byte, and requires the final acceptance reply. Not ready means no digits are sent. An acknowledgement confirms key acceptance, not the displayed number or a program result.
+5. Check the calculator display. Sending changes key-entry state and may affect X, the stack and flags; Run A starts the active program at label A. Live input clears old memory captures and pending upload comparisons. Turn the interface off, then read settings and memory again for current data.
+6. Choose **Turn interface off** when finished. Disconnect also requests a confirmed exit when idle. Save any wanted activity log before closing the page; **Clear log** changes only that log.
+
+On an unexpected reply, timeout or lost connection, the exchange stops without retrying any keys. It leaves normal commands locked because some keys or the mode change may already have been accepted. Disconnect, restart the calculator, restore its Bluetooth connection mode, and acknowledge recovery in the panel before reconnecting. An unfinished live mode is remembered across a reload in the same tab when browser session storage is available. Closing the page cannot reliably send an asynchronous exit, so turn the interface off first. Unverified flag notifications interleaved with a transfer cause a stop.
+
+**HP-97S Demo:** uses the same controller and binary handshakes against a simulated device. It records the entry and simulates flags/readiness; it does not execute calculator programs or change the separate Demo RAM capture. Expand **Demo flag controls** to simulate notifications. A transfer without Run A sets Flag 3 and makes Demo not ready; toggle Flag 3 clear to continue.
+
+**Protocol provenance and limits:** the implementation follows the supplied [HP-97S protocol investigation](Research/TEENIX97-HP97S-Protocol.md), preserved unchanged. Its CalCom executable hash matches the supplied local executable. Earlier Teenio reads identified the calculator as firmware 21, although the investigation itself did not identify that firmware. HP-97S operation on the physical board remains **unverified**. The nine-key-plus-terminator limit is conservative because the ten-symbol boundary is unresolved. This does not configure the isolated external-equipment connector, change its serial settings, or establish simultaneous operation of the PC and equipment paths.
+
+**HP-97S automated verification:** 69 tests pass in total, including 18 new protocol checks. These cover the documented `34.27` exchange, all key mappings, per-byte acknowledgement pacing, source validation, fresh readiness, mode rejection, unsolicited idle flags, interrupted/failed exchanges, unexpected or extra replies, no automatic retries, and the conservative maximum entry. No live HP-97S commands were sent during development.
+
+**HP-97S browser verification:** the packaged v0.7.0 site was checked in a separate local Demo session. Mode entry, status/flags, cancellation without sending, `34.27` and `11A` transfers, a not-ready refusal, overlong-entry rejection, simulated flag notifications, normal-command locking, log clearing without changing calculator state, mode exit, and graceful disconnect passed. Normal reads became available again after mode exit. No browser console errors were recorded. This verifies the Demo workflow, not physical HP-97S behaviour.
 
 **Widget tooltips:** hover over buttons, selectors, fields, directory entries and readouts for explanations. Tooltips distinguish viewing existing data from reading the calculator, explain backup and write controls, and adapt to live or Demo connection states. Help remains available for complete instructions.
 
@@ -108,7 +127,7 @@ Run the automated tests with Node.js 22 or later:
 npm --prefix Web test
 ```
 
-GitHub Actions runs these checks on each push and pull request. `Tests/Fixtures/` contains the small regression captures required by the tests; `Programs/` includes the Lucas–Lehmer sample cards, listings and generators. See [the program notes](Programs/README.md) and [the clock protocol notes](Research/HP97-clock-protocol.md).
+GitHub Actions runs these checks on each push and pull request. `Tests/Fixtures/` contains the small regression captures required by the tests; `Programs/` includes the Lucas–Lehmer sample cards, listings and generators. See [the program notes](Programs/README.md), [the clock protocol notes](Research/HP97-clock-protocol.md) and [the HP-97S protocol notes](Research/TEENIX97-HP97S-Protocol.md).
 
 To prepare the same static website artifact used by Pages, run `node scripts/build-pages.mjs`. This creates the generated `_site/` directory. All app URLs are relative so the site works under the `/teenioweb/` project path. The offline cache is scoped to this app's URL, preserving caches belonging to other projects on the same GitHub Pages domain.
 

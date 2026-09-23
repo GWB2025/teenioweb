@@ -5,7 +5,7 @@ import { runInNewContext } from "node:vm";
 
 test("Pages worker preserves other projects' caches and ignores requests outside its scope", async () => {
   const scope = "https://gwb2025.github.io/teenioweb/";
-  const current = `teenio-web:${scope}:v0.6.1`;
+  const current = `teenio-web:${scope}:v0.7.0`;
   const previous = `teenio-web:${scope}:v0.3.1`;
   const otherProject = "teenio-web:https://gwb2025.github.io/another-project/:v0.3.1";
   const removed = [];
