@@ -30,7 +30,7 @@ export function loadMemoryReport(text) {
   return { ...decodeRAM(bytes), capturedAt, simulated: sources[0] === "Source: DEMO EXAMPLE" };
 }
 
-function cardRegisters(record) {
+export function cardRegisters(record) {
   validateProgramCard(record);
   const nibbles = Array.from(record.slice(21, 140)).flatMap(byte => [byte >> 4, byte & 15]);
   const bytes = [];

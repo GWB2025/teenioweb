@@ -1,17 +1,18 @@
 // GitHub Pages projects share an origin. Only manage caches for this app's scope.
 const CACHE_PREFIX = `teenio-web:${self.registration.scope}:`;
-const CACHE = `${CACHE_PREFIX}v0.5.2`;
+const CACHE = `${CACHE_PREFIX}v0.6.0`;
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=0.5.2",
-  "./app.js?v=0.5.2",
+  "./styles.css?v=0.6.0",
+  "./app.js?v=0.6.0",
   "./protocol.js",
   "./calculator.js",
   "./program-table.js",
   "./stored-programs.js?v=0.5.0",
   "./storage-writing.js?v=0.5.0",
-  "./memory-cards.js?v=0.5.0",
+  "./memory-cards.js?v=0.6.0",
+  "./program-upload.js?v=0.6.0",
   "./serial.js?v=0.5.1",
   "./manifest.webmanifest",
   "./icons/icon-192.png",

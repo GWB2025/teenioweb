@@ -137,6 +137,12 @@ input[type="datetime-local"] { min-height: 39px; padding: 7px 10px; border: 1px 
 .program-exports[hidden] { display: none; }
 .program-exports > div { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 16px; border-radius: 10px; background: var(--soft); }
 .program-exports span { font-size: .8rem; color: var(--muted); }
+.loading-guide, .backup-tools { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+.loading-guide ol { padding-left: 22px; font-size: .85rem; line-height: 1.6; }
+.backup-tools summary { cursor: pointer; font-weight: 700; }
+.backup-tools .card-actions { margin-top: 14px; justify-content: flex-start; }
+#pairProgress { display: block; width: 100%; margin-top: 16px; accent-color: var(--blue); }
+#pairProgress[hidden] { display: none; }
 
 dialog { width: min(650px, calc(100vw - 36px)); padding: 30px; border: 0; border-radius: 16px; box-shadow: 0 24px 80px rgba(0, 0, 0, .3); }
 dialog::backdrop { background: rgba(13, 22, 40, .58); }

@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="styles.css?v=0.5.2">
+  <link rel="stylesheet" href="styles.css?v=0.6.0">
   <title>Teenio Web · HP-97</title>
 </head>
 <body>
@@ -41,7 +41,7 @@
       </nav>
 
       <button id="helpButton" class="secondary full">Help</button>
-      <p class="version">Web milestone 5 · v0.5.2</p>
+      <p class="version">Web milestone 6 · v0.6.0</p>
     </aside>
 
     <main>
@@ -110,7 +110,7 @@
           <p id="memoryMessage" class="caption">Read settings first to verify HP-97 firmware 21.</p>
         </article>
         <article class="panel feature-panel">
-          <div class="panel-heading"><h3>Export program as two cards</h3><button id="chooseTemplate" class="secondary" title="Read or open a program card to supply the exported cards’ display settings and flags">Choose card template…</button></div>
+          <div class="panel-heading"><h3>Prepare a two-card program</h3><button id="chooseTemplate" class="secondary" title="Read or open a program card to supply the exported cards’ display settings and flags">Choose card template…</button></div>
           <p class="hint">Preserve all 224 positions, including trailing R/S instructions, as two CalCom-compatible HPP files. Exporting leaves the calculator unchanged.</p>
           <p id="exportMemorySource" class="caption"></p>
           <p id="cardTemplate" class="caption"></p>
@@ -122,6 +122,7 @@
           <div id="programExports" class="program-exports" hidden>
             <div><strong id="part1Name"></strong><span>Positions 001–112 · load first</span><button id="exportPart1" class="secondary" disabled>Save card 1 of 2 (.hpp)</button></div>
             <div><strong id="part2Name"></strong><span>Positions 113–224 · load second</span><button id="exportPart2" class="secondary" disabled>Save card 2 of 2 (.hpp)</button></div>
+            <button id="chooseUploadDestination" class="primary" title="Choose two adjacent storage slots for these prepared cards">Choose upload destination…</button>
           </div>
           <p id="programExportMessage" class="caption" role="status">This exports the program only. Save memory above to keep the numeric registers too.</p>
         </article>
@@ -168,6 +169,44 @@
             <button id="saveBackup" class="secondary" title="Download another copy of the most recent destination backup" disabled>Save backup copy</button>
           </div>
         </article>
+        <article class="panel feature-panel">
+          <div class="panel-heading"><h3>Upload a two-card program</h3><button id="prepareForUpload" class="secondary">Prepare from memory…</button></div>
+          <p id="pairSource" class="caption"></p>
+          <p id="pairDestination" class="caption"></p>
+          <p class="hint">Use the block and slot selectors above. Prefer two vacant adjacent slots. Both slot backups and current memory are saved together in one checked backup file before either card is written.</p>
+          <button id="uploadPair" class="primary" disabled>Upload both cards…</button>
+          <p id="pairAvailability" class="caption"></p>
+          <progress id="pairProgress" aria-label="Two-card upload in progress" hidden></progress>
+          <p id="pairMessage" class="caption" role="status">Uploading stores the cards. Load them on the calculator in the next step.</p>
+          <div id="loadInstructions" class="loading-guide" hidden>
+            <h3>Load and verify</h3>
+            <p id="loadLocation" class="caption"></p>
+            <ol>
+              <li>On the HP-97 in RUN mode, hold <strong>f</strong> to access <strong>CARD</strong>, choose <strong>Read</strong>, enter the block and first slot above, then press <strong>ENTER</strong>.</li>
+              <li>At the <strong>Crd</strong> prompt, press <strong>ENTER</strong> to load the following card.</li>
+              <li>Before running the program or changing registers, choose <strong>Verify loaded program</strong> here. If necessary, reconnect the same calculator and read settings first.</li>
+            </ol>
+            <div class="card-actions">
+              <button id="simulateLoad" class="secondary" hidden>Simulate loading both cards</button>
+              <button id="verifyProgram" class="primary" disabled>Verify loaded program</button>
+              <button id="saveVerification" class="secondary" disabled>Save verification report</button>
+            </div>
+            <p id="verificationMessage" class="caption" role="status"></p>
+          </div>
+          <details class="backup-tools">
+            <summary>Two-card backup files</summary>
+            <p id="pairBackupSummary" class="caption"></p>
+            <div class="card-actions">
+              <button id="openPairBackup" class="secondary">Open upload backup…</button>
+              <input id="pairBackupFile" type="file" accept=".json,application/json" hidden>
+              <button id="savePairBackup" class="secondary" disabled>Save upload backup copy</button>
+              <button id="extractPairMemory" class="secondary" disabled>Extract memory report</button>
+              <button id="extractPairSlot1" class="secondary" disabled>Extract first slot backup</button>
+              <button id="extractPairSlot2" class="secondary" disabled>Extract second slot backup</button>
+            </div>
+            <p class="hint">Extracted slot backups use the existing .calcom-slot format. Opening or extracting a backup does not restore calculator data. Keep the backup file after any interrupted upload.</p>
+          </details>
+        </article>
       </section>
 
       <section class="activity-panel">
@@ -186,6 +225,15 @@
       <button id="cancelWrite" class="secondary" autofocus>Cancel</button>
       <button id="writeConfirm" class="primary">Choose backup file and write</button>
     </div>
+  </dialog>
+
+  <dialog id="pairDialog" aria-labelledby="pairTitle" aria-describedby="pairReview">
+    <p class="eyebrow">Two adjacent stored cards</p>
+    <h2 id="pairTitle">Review program upload</h2>
+    <p id="pairReview"></p>
+    <p>Teenio saves and checks the complete backup, writes card 1 and verifies it, then writes and verifies card 2. A failure stops the upload; it does not retry or restore automatically. The pair may be incomplete if writing has started.</p>
+    <p>Keep the calculator powered and leave its controls untouched during the upload. Demo mode keeps its backup in memory until you save a copy.</p>
+    <div class="card-actions"><button id="cancelPair" class="secondary" autofocus>Cancel</button><button id="confirmPair" class="primary">Choose backup file and upload</button></div>
   </dialog>
 
   <dialog id="help">
@@ -218,8 +266,21 @@
       <li>Choose a new backup file when prompted. Teenio freshly reads the destination, saves its exact bytes and reopens the file to check it before writing. Cancelling or a backup failure stops the write.</li>
       <li>Wait for <strong>written and verified</strong>, then scan the directory again. The check compares all 150 bytes. Load the stored card through the calculator’s card-read controls to run it.</li>
     </ol>
-    <p>Live writing needs desktop Chrome’s file-saving support. Keep the page open and the calculator powered during a write. If it fails after writing starts, the destination may have changed: retain the backup and reconnect to inspect the slot. Teenio does not retry or restore automatically. Single-slot writing does not change active memory or registers. Uploading a two-card program requires two separate writes in the correct order; it is not an automatic two-card operation.</p>
+    <p>Live writing needs desktop Chrome’s file-saving support. Keep the page open and the calculator powered during a write. If it fails after writing starts, the destination may have changed: retain the backup and reconnect to inspect the slot. Teenio does not retry or restore automatically. Single-slot writing does not load active program memory.</p>
     <p>Demo writing changes only the browser’s temporary Demo storage and verifies a separate read from it. Demo backups are held in memory until saved; Demo captures cannot be written directly to the real calculator.</p>
+    <h2>Upload two cards, then verify the loaded program</h2>
+    <ol>
+      <li>Prepare both cards from a memory capture as described above. Choose <strong>Choose upload destination…</strong> to return to Stored programs.</li>
+      <li>Scan the intended block and select the first of two adjacent slots. Prefer two vacant slots. The first slot must be 00–52; the pair cannot cross a block boundary.</li>
+      <li>Choose <strong>Upload both cards…</strong>, check the names and both destinations, then choose a new backup file. Teenio reads current RAM and both destination slots, saves them together and reopens the file to check every byte before either slot is written.</li>
+      <li>Wait for both stored cards to be verified. Card 1 is written and separately read back before card 2 starts. A failed write or read-back stops the pair with no automatic retry or restore.</li>
+      <li>On the HP-97 in RUN mode, hold <strong>f</strong>, choose <strong>CARD → Read</strong>, select the first destination and press <strong>ENTER</strong>. At <strong>Crd</strong>, press <strong>ENTER</strong> to load the following card.</li>
+      <li>Before running the program or changing registers, choose <strong>Verify loaded program</strong>. It makes a fresh RAM read, compares all 224 program positions with the prepared source, and checks that the sixteen primary registers are unchanged from before upload. Save the verification report if wanted.</li>
+    </ol>
+    <p>If the source program was already active before uploading, matching memory cannot prove that loading happened. Teenio reports this explicitly. Keep this page open until verification is finished; you may disconnect and reconnect the same calculator and read settings again. Reloading the page or switching Demo mode clears the pending comparison.</p>
+    <p>In Demo mode, uploading changes only stored cards. Use <strong>Simulate loading both cards</strong> before verifying; verification alone never loads them. Save the Demo upload backup to keep it after closing the page.</p>
+    <h2>Keep and reopen upload backups</h2>
+    <p>Under <strong>Two-card backup files</strong>, open a saved upload backup (.json) and extract its full memory report or either original .calcom-slot capture. The file includes checksums for all three captures, including vacant or unrecognised slots. Opening it neither restores calculator data nor resumes a pending verification. Valid original program cards can be restored through the single-slot write workflow; restoration of vacant or unrecognised slots and numeric-register writing are not implemented.</p>
     <h2>Privacy and safety</h2>
     <p>This milestone runs locally in your browser. It sends calculator bytes only through the serial device you select and does not upload them to a server. Demo mode never opens Bluetooth.</p>
     <h2>Acknowledgements</h2>
@@ -227,6 +288,6 @@
     <button id="closeHelp" class="primary">Close</button>
   </dialog>
 
-  <script type="module" src="app.js?v=0.5.2"></script>
+  <script type="module" src="app.js?v=0.6.0"></script>
 </body>
 </html>

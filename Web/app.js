@@ -10,6 +10,7 @@ import {
   ClockReadTransfer,
   ClockWriteTransfer,
   RAMReadTransfer,
+  decodeRAM,
   demoRAM,
   memoryReport,
   programReport,
@@ -30,7 +31,8 @@ import {
   writeDemoSlot,
 } from "./stored-programs.js?v=0.5.0";
 import { saveBackupFile, writeBackedUpSlot } from "./storage-writing.js?v=0.5.0";
-import { loadMemoryReport, prepareMemoryCards } from "./memory-cards.js?v=0.5.0";
+import { loadMemoryReport, prepareMemoryCards } from "./memory-cards.js?v=0.6.0";
+import { compareLoadedProgram, encodeProgramBackup, loadProgramBackup, programBytesFromCards, uploadProgramPair, validatePairLocation } from "./program-upload.js?v=0.6.0";
 import { WebSerialTransport } from "./serial.js?v=0.5.1";
 
 const elements = Object.fromEntries(Array.from(document.querySelectorAll("[id]"), element => [element.id, element]));
@@ -49,6 +51,10 @@ const state = {
   storedCapture: null,
   writeJob: null,
   lastBackup: null,
+  lastPairBackup: null,
+  programLoad: null,
+  verifying: false,
+  demoMemory: demoRAM().bytes,
   session: 0,
   closing: false,
   bytesReceived: 0,
@@ -60,7 +66,7 @@ const state = {
   installPrompt: null,
 };
 
-function locked() { return Boolean(state.busy || state.writeJob || state.closing); }
+function locked() { return Boolean(state.busy || state.writeJob || state.closing || state.verifying); }
 
 function timestamp() {
   return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date());
@@ -184,6 +190,37 @@ function updateSlotSelection() {
     button.setAttribute("aria-pressed", String(selected));
   });
   elements.slotSelection.textContent = `Selected: block ${block.toString(16).toUpperCase()}, slot ${String(slot).padStart(2, "0")}. Choose Read selected slot to read this card.`;
+  renderPairUpload();
+}
+
+function renderPairUpload() {
+  const program = state.preparedProgram;
+  const slot = Number(elements.storageSlot.value);
+  const block = Number(elements.storageBlock.value).toString(16).toUpperCase();
+  const demoSource = program?.memory.simulated || program?.cards.some(card => card.simulated);
+  const fileSaving = elements.demo.checked || typeof window.showSaveFilePicker === "function";
+  elements.uploadPair.disabled = !program || !state.connected || locked() || !verifiedFirmware() || slot > 52 ||
+    !fileSaving || (!elements.demo.checked && demoSource);
+  elements.pairSource.textContent = program ? `${demoSource ? "DEMO · " : ""}${program.cards.map(card => card.name).join(" + ")} · 224 positions.`
+    : "Prepare two cards in Memory & registers, then return here to select their destination.";
+  elements.pairDestination.textContent = slot > 52 ? "Slot 53 has no following slot. Choose a first slot from 00 to 52."
+    : `Destination: block ${block}, slots ${String(slot).padStart(2, "0")} and ${String(slot + 1).padStart(2, "0")}. Both existing slots will be backed up before either is replaced.`;
+  elements.pairAvailability.textContent = !fileSaving ? "Live uploading requires desktop Chrome’s file-saving support."
+    : !elements.demo.checked && demoSource ? "Demo programs can only be uploaded in Demo mode." : "";
+  elements.pairProgress.hidden = !(state.writeJob?.kind === "pair" && state.writeJob.started);
+  const load = state.programLoad;
+  elements.loadInstructions.hidden = !load;
+  elements.verifyProgram.disabled = !load || !state.connected || locked() || !verifiedFirmware() || elements.demo.checked !== load.simulated;
+  elements.simulateLoad.hidden = !load?.simulated;
+  elements.simulateLoad.disabled = elements.verifyProgram.disabled;
+  elements.saveVerification.disabled = !load?.report || locked();
+  if (load) elements.loadLocation.textContent = `${load.simulated ? "Demo upload" : "Uploaded cards"}: block ${load.block.toString(16).toUpperCase()}, slots ${String(load.slot).padStart(2, "0")} and ${String(load.slot + 1).padStart(2, "0")}.`;
+  elements.openPairBackup.disabled = locked();
+  for (const id of ["savePairBackup", "extractPairMemory", "extractPairSlot1", "extractPairSlot2"]) elements[id].disabled = !state.lastPairBackup || locked();
+  const backup = state.lastPairBackup;
+  elements.pairBackupSummary.textContent = backup
+    ? `${backup.simulated ? "DEMO · " : ""}Backup of block ${backup.block.toString(16).toUpperCase()}, slots ${String(backup.slot).padStart(2, "0")} and ${String(backup.slot + 1).padStart(2, "0")} plus 448 memory bytes · ${backup.memory.capturedAt.toLocaleString()}.`
+    : "No two-card backup in this session. Open a saved backup to extract its memory report and individual slot captures.";
 }
 
 function renderStorage() {
@@ -280,6 +317,7 @@ function render() {
   renderMemory();
   renderStorage();
   renderProgramExport();
+  renderPairUpload();
 }
 
 function showPage(name) {
@@ -574,8 +612,7 @@ async function setClock() {
 
 async function readMemory() {
   if (elements.demo.checked) {
-    state.memoryReading = demoRAM();
-    state.memoryReading.capturedAt = new Date();
+    state.memoryReading = readDemoMemory();
     elements.memoryMessage.textContent = "Demo active memory read complete · 448 bytes.";
     setStatus("Demo memory read successfully", "success");
     log("Decoded 448 Demo memory bytes, sixteen registers and 224 program positions.");
@@ -629,7 +666,140 @@ function prepareProgram() {
     state.preparedProgram = null;
     elements.programExportMessage.textContent = error.message;
   }
-  renderProgramExport();
+  render();
+}
+
+function readDemoMemory() {
+  return { ...decodeRAM(state.demoMemory), simulated: true };
+}
+
+function readCurrentMemory() {
+  if (elements.demo.checked) return Promise.resolve(readDemoMemory());
+  return new Promise((resolve, reject) => {
+    void startTransfer({ decoder: new RAMReadTransfer(), command: Uint8Array.of(0x0c), label: "Memory",
+      status: "Reading current calculator memory…", timeoutMessage: "The active-memory transfer timed out.",
+      logPackets: false, onComplete: resolve, onError: reject }).catch(reject);
+  });
+}
+
+function reviewPairUpload() {
+  if (elements.uploadPair.disabled || locked()) return;
+  const program = state.preparedProgram;
+  const block = Number(elements.storageBlock.value);
+  const slot = Number(elements.storageSlot.value);
+  validatePairLocation(block, slot);
+  state.writeJob = { kind: "pair", block, slot, session: state.session, simulated: elements.demo.checked,
+    memory: { bytes: program.memory.bytes.slice(), simulated: program.memory.simulated },
+    cards: program.cards.map(card => ({ ...card, record: card.record.slice() })), started: false, writeStarted: false };
+  elements.pairReview.textContent = `Upload “${program.cards[0].name}” and “${program.cards[1].name}” to ${elements.demo.checked ? "Demo " : ""}block ${block.toString(16).toUpperCase()}, slots ${String(slot).padStart(2, "0")} and ${String(slot + 1).padStart(2, "0")}? Both existing slots will be replaced. Current memory and both slots will be backed up first.`;
+  elements.confirmPair.textContent = elements.demo.checked ? "Back up and upload Demo cards" : "Choose backup file and upload";
+  render();
+  elements.pairDialog.showModal();
+}
+
+async function confirmPairUpload() {
+  const job = state.writeJob;
+  if (job?.kind !== "pair" || job.started) return;
+  job.started = true;
+  elements.pairDialog.close();
+  elements.pairMessage.textContent = job.simulated ? "Preparing Demo upload…" : "Choose a new backup file to start the upload…";
+  render();
+  const ensureConnected = () => {
+    if (!state.connected || state.session !== job.session || state.writeJob !== job || state.closing ||
+        elements.demo.checked !== job.simulated || !verifiedFirmware()) throw new Error("The connection changed. Upload stopped.");
+  };
+  try {
+    ensureConnected();
+    // Keep the user gesture for the picker; no calculator request precedes it.
+    const handle = job.simulated ? null : await window.showSaveFilePicker({
+      suggestedName: `Teenio-program-backup-${job.block.toString(16).toUpperCase()}-${String(job.slot).padStart(2, "0")}-${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
+      types: [{ description: "Teenio two-card backup", accept: { "application/json": [".json"] } }],
+    });
+    ensureConnected();
+    const result = await uploadProgramPair({ ...job, ensureConnected,
+      readMemory: readCurrentMemory,
+      readSlot: (block, slot) => job.simulated ? demoStoredSlot(block, slot)
+        : runStorageTransfer(new StoredSlotReadTransfer(block, slot), 0x03, "Reading stored slot…"),
+      writeSlot: (block, slot, bytes) => job.simulated ? writeDemoSlot(block, slot, bytes)
+        : runStorageTransfer(new StoredSlotWriteTransfer(block, slot, bytes), 0x04, "Writing stored card…"),
+      saveBackup: text => job.simulated ? Promise.resolve(text) : saveBackupFile(handle, text),
+      onBackup: backup => { state.lastPairBackup = backup; },
+      onWriteStart: () => {
+        ensureConnected();
+        job.writeStarted = true;
+        state.programLoad = null;
+        state.directoryEntries = null;
+        elements.directoryMessage.textContent = "Scan the directory again after the upload.";
+      },
+      onStage: message => { elements.pairMessage.textContent = message; setStatus(message); log(`${job.simulated ? "Demo · " : ""}${message}`); },
+    });
+    ensureConnected();
+    state.programLoad = result;
+    elements.verificationMessage.textContent = "Cards verified in storage. Load both on the calculator before verifying active memory. Do not run the program or change registers before verification.";
+    elements.pairMessage.textContent = `Both cards uploaded and all 300 bytes checked. ${job.simulated ? "Save the Demo backup below to retain it." : `Backup saved as ${handle.name}.`} Loading is a separate step below.`;
+    if (job.simulated) {
+      state.directoryBlock = job.block;
+      state.directoryEntries = demoDirectory(job.block);
+      elements.directoryMessage.textContent = "Demo directory updated after the verified upload.";
+    }
+    setStatus("Both stored cards uploaded and verified", "success");
+    log(elements.pairMessage.textContent);
+  } catch (error) {
+    const message = `${error.name === "AbortError" && !job.writeStarted ? "Upload cancelled." : error.message} ${job.writeStarted ? "The pair may be incomplete. Keep the backup; no retry or restore was attempted." : "No calculator write was started."}`;
+    elements.pairMessage.textContent = message;
+    setStatus(message, "error");
+    log(message);
+    if (job.writeStarted && !job.simulated && state.connected) await disconnect(message);
+  } finally { state.writeJob = null; state.busy = false; render(); }
+}
+
+async function verifyLoadedProgram() {
+  if (elements.verifyProgram.disabled || locked()) return;
+  const load = state.programLoad;
+  const session = state.session;
+  state.verifying = true;
+  load.report = null;
+  elements.verificationMessage.textContent = "Reading active memory to compare the program and registers…";
+  render();
+  try {
+    const after = await readCurrentMemory();
+    if (!state.connected || state.session !== session || state.programLoad !== load) throw new Error("The connection changed. Verification was not completed.");
+    const result = compareLoadedProgram(load.before, load.expectedProgram, after.bytes);
+    state.memoryReading = after;
+    elements.memoryMessage.textContent = "Memory read during loaded-program verification.";
+    elements.verificationMessage.textContent = result.message;
+    load.report = [`Teenio loaded-program verification`, `Source: ${load.simulated ? "DEMO EXAMPLE" : "Bluetooth calculator read"}`,
+      `Checked: ${after.capturedAt.toISOString()}`, `Storage block ${load.block.toString(16).toUpperCase()}, slots ${load.slot} and ${load.slot + 1}`,
+      result.message, "", "Memory after verification", memoryReport(after)].join("\n");
+    setStatus(result.message, result.verified ? "success" : result.programMatches && !result.changedRegisters.length ? "neutral" : "error");
+    log(result.message);
+  } catch (error) { elements.verificationMessage.textContent = error.message; setStatus(error.message, "error"); log(error.message); }
+  finally { state.verifying = false; render(); }
+}
+
+function simulateProgramLoad() {
+  if (elements.simulateLoad.disabled || !elements.demo.checked || !state.programLoad?.simulated || locked()) return;
+  const load = state.programLoad;
+  try {
+    const program = programBytesFromCards([demoStoredSlot(load.block, load.slot), demoStoredSlot(load.block, load.slot + 1)]);
+    state.demoMemory.set(program, 112);
+    load.report = null;
+    elements.verificationMessage.textContent = "Demo calculator loaded both stored cards. Choose Verify loaded program for a separate memory read.";
+    log("Demo calculator loaded the stored pair; sixteen registers preserved. Verification has not yet run.");
+    render();
+  } catch (error) { elements.verificationMessage.textContent = error.message; }
+}
+
+async function openPairBackup(file) {
+  if (locked()) return;
+  state.busy = true;
+  render();
+  try {
+    if (file.size > 65536) throw new Error("This file is too large for a two-card backup.");
+    state.lastPairBackup = await loadProgramBackup(await file.text());
+    elements.pairMessage.textContent = "Backup opened and checked. Use the backup tools to save its individual captures. Opening it does not restore any calculator data.";
+  } catch (error) { elements.pairMessage.textContent = error.message; }
+  finally { state.busy = false; render(); }
 }
 
 async function scanDirectory() {
@@ -777,6 +947,7 @@ async function confirmSlotWrite() {
       write: async (block, slot, bytes) => {
         ensureConnected();
         job.writeStarted = true;
+        state.programLoad = null;
         // A scan is stale as soon as a write is attempted, including a failed write.
         state.directoryEntries = null;
         elements.directoryMessage.textContent = "Scan the block again to refresh its directory after this write.";
@@ -845,8 +1016,10 @@ elements.memoryFile.addEventListener("change", () => {
   elements.memoryFile.value = "";
 });
 elements.chooseTemplate.addEventListener("click", () => showPage("programs"));
+elements.chooseUploadDestination.addEventListener("click", () => showPage("programs"));
+elements.prepareForUpload.addEventListener("click", () => showPage("memory"));
 elements.prepareProgram.addEventListener("click", prepareProgram);
-elements.programName.addEventListener("input", renderProgramExport);
+elements.programName.addEventListener("input", () => { renderProgramExport(); renderPairUpload(); });
 for (let part = 1; part <= 2; part += 1) {
   elements[`exportPart${part}`].addEventListener("click", () => {
     if (locked() || !state.preparedProgram) return;
@@ -859,6 +1032,36 @@ for (let part = 1; part <= 2; part += 1) {
 elements.scanDirectory.addEventListener("click", () => void scanDirectory());
 elements.readSlot.addEventListener("click", () => void readStoredSlot());
 elements.writeSlot.addEventListener("click", reviewSlotWrite);
+elements.uploadPair.addEventListener("click", reviewPairUpload);
+elements.confirmPair.addEventListener("click", () => void confirmPairUpload());
+elements.cancelPair.addEventListener("click", () => elements.pairDialog.close());
+elements.pairDialog.addEventListener("close", () => {
+  if (state.writeJob?.kind === "pair" && !state.writeJob.started) { state.writeJob = null; render(); }
+});
+elements.verifyProgram.addEventListener("click", () => void verifyLoadedProgram());
+elements.simulateLoad.addEventListener("click", simulateProgramLoad);
+elements.saveVerification.addEventListener("click", () => {
+  if (state.programLoad?.report) download("Teenio-program-verification.txt", state.programLoad.report);
+});
+elements.openPairBackup.addEventListener("click", () => elements.pairBackupFile.click());
+elements.pairBackupFile.addEventListener("change", () => {
+  const [file] = elements.pairBackupFile.files;
+  if (file) void openPairBackup(file);
+  elements.pairBackupFile.value = "";
+});
+elements.savePairBackup.addEventListener("click", () => {
+  const backup = state.lastPairBackup;
+  if (backup) download(`Teenio-${backup.simulated ? "Demo-" : ""}program-backup-${backup.block.toString(16).toUpperCase()}-${String(backup.slot).padStart(2, "0")}.json`, encodeProgramBackup(backup));
+});
+elements.extractPairMemory.addEventListener("click", () => {
+  if (state.lastPairBackup) download("Teenio-before-upload-memory.txt", memoryReport(state.lastPairBackup.memory));
+});
+for (let part = 1; part <= 2; part += 1) {
+  elements[`extractPairSlot${part}`].addEventListener("click", () => {
+    const capture = state.lastPairBackup?.slots[part - 1];
+    if (capture) download(`Teenio-backup-${capture.block.toString(16).toUpperCase()}-${String(capture.slot).padStart(2, "0")}.calcom-slot`, encodeStoredCapture(capture));
+  });
+}
 elements.writeConfirm.addEventListener("click", () => void confirmSlotWrite());
 elements.cancelWrite.addEventListener("click", () => elements.writeDialog.close());
 elements.writeDialog.addEventListener("close", () => {
@@ -891,6 +1094,7 @@ elements.hppFile.addEventListener("change", () => {
 });
 elements.demo.addEventListener("change", async () => {
   if (state.connected) await disconnect();
+  state.programLoad = null;
   resetReadings();
   setStatus(elements.demo.checked ? "Demo mode selected" : "Ready to connect");
   render();
