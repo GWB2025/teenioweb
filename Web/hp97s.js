@@ -1,5 +1,5 @@
 // CalCom's PC test path, not the isolated external-equipment connector.
-// Evidence and unresolved firmware details: Research/TEENIX97-HP97S-Protocol.md.
+// Evidence: Research/TEENIX97-HP97S-Protocol.md and HP97S-firmware21-follow-up.md.
 const alphabet = "0123456789.XEASN";
 const names = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "Decimal point", "Exponent", "Enter", "Run A", "Change sign", "End"];
 const byteHex = value => value.toString(16).padStart(2, "0").toUpperCase();
@@ -15,7 +15,8 @@ export function encodeHP97SEntry(text) {
     return code;
   });
   if (codes.includes(13) && codes.indexOf(13) !== codes.length - 1) throw new Error("Run A must be the last key in the entry.");
-  return Object.freeze({ text: input, codes: Object.freeze([...codes, 15]), labels: Object.freeze([...codes, 15].map(code => names[code])), runsProgram: codes.includes(13) });
+  const runsProgram = codes.includes(13);
+  return Object.freeze({ text: input, codes: Object.freeze([...codes, 15]), labels: Object.freeze([...codes.map(code => names[code]), runsProgram ? "End if requested" : "End"]), runsProgram });
 }
 
 export function decodeHP97SStatus(byte) {
@@ -24,7 +25,11 @@ export function decodeHP97SStatus(byte) {
 }
 
 const isFlagEvent = byte => (byte & 0xE0) === 0x80;
-const errorFor = byte => new Error(byte === 0xA1 ? "HP-97S reported a full digit buffer (A1)."
+const errorFor = (byte, mode, command) => new Error(mode === "entering" && byte === 0xF5
+  ? "HP-97S entry returned F5 instead of the ON acknowledgement FF. The calculator may already be in its separate 97S mode. Leave 97S off in the calculator menu, restart and reconnect normally, then turn the interface on in Teenio. No keys were sent."
+  : mode === "on" && command === 0xF0 && byte === 0xF5
+    ? "HP-97S mode entry was acknowledged, but the status query returned F5 instead of flags. Firmware 21 may route HP-97S commands to the wired PC connection rather than Bluetooth. This does not confirm that the interface is off. No further commands were sent; disconnect and restart the calculator before reconnecting."
+  : byte === 0xA1 ? "HP-97S reported a full digit buffer (A1)."
   : byte === 0xA2 ? "HP-97S reported a transfer error (A2); its precise cause is not verified."
   : `Unexpected HP-97S response ${byteHex(byte)}.`);
 
@@ -67,7 +72,7 @@ export class HP97SController {
         this.waiter = null;
         clearTimeout(waiter.timer);
         if (!waiter.accept(byte)) {
-          const error = isFlagEvent(byte) ? new Error("A flag notification arrived during the exchange. Transfer stopped because interleaving is not yet verified.") : errorFor(byte);
+          const error = isFlagEvent(byte) ? new Error("A flag notification arrived during the exchange. Transfer stopped because interleaving is not yet verified.") : errorFor(byte, this.mode, waiter.command);
           this.fault(error);
           waiter.reject(error);
           return;
@@ -87,7 +92,7 @@ export class HP97SController {
   async exchange(byte, accept, description, timeoutMs = this.timeoutMs) {
     this.check();
     const reply = new Promise((resolve, reject) => {
-      const waiter = { resolve, reject, accept };
+      const waiter = { resolve, reject, accept, command: byte };
       waiter.timer = setTimeout(() => {
         if (this.waiter === waiter) this.fault(new Error(`Timed out waiting for ${description}.`));
       }, timeoutMs);
@@ -159,7 +164,12 @@ export class HP97SController {
       this.change();
       await this.exchange(0xF1, byte => byte === 0xF1, "permission to send digits", this.digitTimeoutMs);
       for (const code of entry.codes) {
-        await this.exchange(code, byte => byte === (code === 15 ? 0xA0 : 0xF1), code === 15 ? "transfer acceptance" : `next-key prompt after ${names[code]}`, this.digitTimeoutMs);
+        // Firmware 21 completes at Run A. Only send NOP if another F1 requests it.
+        const reply = await this.exchange(code,
+          byte => code === 15 ? byte === 0xA0 : byte === 0xF1 || (code === 13 && byte === 0xA0),
+          code === 15 ? "transfer acceptance" : code === 13 ? "Run A acceptance or next-key prompt" : `next-key prompt after ${names[code]}`,
+          this.digitTimeoutMs);
+        if (reply === 0xA0) break;
       }
       this.lastAccepted = entry;
       this.onLog("Transfer accepted (A0). This acknowledges key entry; it does not verify the displayed value or a program result.");
@@ -191,14 +201,16 @@ export class DemoHP97SDevice {
       return [0xFF];
     }
     if (this.collecting) {
-      if (byte === 15) {
+      if (byte !== 15) {
+        if (byte > 14 || this.keys.length >= 9) { this.collecting = false; return [0xA1]; }
+        this.keys.push(byte);
+      }
+      if (byte === 15 || byte === 13) {
         this.lastKeys = [...this.keys];
         this.collecting = false;
         this.status = (this.status & 7) | (this.keys.includes(13) ? 0x10 : 8);
         return [0xA0];
       }
-      if (byte > 14 || this.keys.length >= 9) { this.collecting = false; return [0xA1]; }
-      this.keys.push(byte);
       return [0xF1];
     }
     if (byte === 0xF5) { this.active = false; return [0xF5]; }

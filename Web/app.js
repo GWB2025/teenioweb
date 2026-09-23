@@ -34,7 +34,7 @@ import { saveBackupFile, writeBackedUpSlot } from "./storage-writing.js?v=0.5.0"
 import { loadMemoryReport, prepareMemoryCards } from "./memory-cards.js?v=0.6.0";
 import { compareLoadedProgram, encodeProgramBackup, loadProgramBackup, programBytesFromCards, uploadProgramPair, validatePairLocation } from "./program-upload.js?v=0.6.0";
 import { WebSerialTransport } from "./serial.js?v=0.5.1";
-import { HP97SController, DemoHP97SDevice, encodeHP97SEntry } from "./hp97s.js?v=0.7.0";
+import { HP97SController, DemoHP97SDevice, encodeHP97SEntry } from "./hp97s.js?v=0.7.1";
 
 const elements = Object.fromEntries(Array.from(document.querySelectorAll("[id]"), element => [element.id, element]));
 function hp97sRecoverySaved() {
@@ -45,6 +45,7 @@ const state = {
   connecting: false,
   busy: false,
   reading: null,
+  settingsIssue: null,
   clockReading: null,
   clockVerified: false,
   memoryReading: null,
@@ -345,7 +346,7 @@ function renderHP97S() {
   const enabled = readyForMode && mode === "on" && !busy;
   elements.hp97sToggle.textContent = mode === "entering" ? "Turning on…" : mode === "leaving" ? "Turning off…" : mode === "on" ? "Turn interface off" : "Turn interface on";
   elements.hp97sToggle.disabled = !readyForMode || busy || mode === "fault";
-  elements.hp97sToggle.title = mode === "on" ? "Leave HP-97S mode and wait for confirmation before resuming normal calculator commands." : "Enter CalCom-compatible HP-97S test mode over this connection. The calculator must be in RUN mode.";
+  elements.hp97sToggle.title = mode === "on" ? "Leave HP-97S mode and wait for confirmation before resuming normal calculator commands." : "Enter CalCom-compatible HP-97S test mode over this connection. Use RUN and leave 97S off in the calculator’s own menu; Teenio enables the PC test mode.";
   elements.hp97sReadStatus.disabled = !enabled;
   elements.hp97sDigits.disabled = busy || mode === "fault" || state.hp97sRecovery;
   const { entry, error } = hp97sEntry();
@@ -362,7 +363,7 @@ function renderHP97S() {
     : !state.connected ? "Connect and read settings first. Demo mode is available without a calculator."
     : mode === "on" ? "HP-97S mode owns this connection. Turn it off to use normal settings, clock, memory and card operations."
     : !verifiedFirmware() ? "Read settings to verify HP-97 firmware 21 before turning on the interface."
-    : "Put the calculator in RUN mode, then turn the interface on. Live HP-97S behaviour still needs a hardware check.";
+    : "Use RUN and leave 97S off in the calculator’s own menu, then turn the interface on here. The calculator menu is for the separate external-equipment connection.";
   elements.hp97sRecoveryPanel.hidden = !state.hp97sRecovery && mode !== "fault";
   elements.hp97sRecovered.disabled = state.connected || busy;
   elements.hp97sRecovered.textContent = elements.demo.checked ? "Reset Demo interface" : "I have restarted the calculator";
@@ -455,7 +456,7 @@ async function confirmHP97SSend() {
   }
   try {
     const entry = await review.controller.send(review.entry.text);
-    elements.hp97sMessage.textContent = `${review.simulated ? "DEMO · " : ""}Keys accepted: ${entry.labels.join(" → ")}. Read status again for fresh flags. ${review.simulated ? "Demo does not execute programs or change the separate Demo memory capture." : "Check the calculator display; acknowledgement does not verify its value or program result."}`;
+    elements.hp97sMessage.textContent = `${review.simulated ? "DEMO · " : ""}Keys accepted: ${entry.labels.slice(0, -1).join(" → ")}. Read status again for fresh flags. ${review.simulated ? "Demo does not execute programs or change the separate Demo memory capture." : "Check the calculator display; acknowledgement does not verify its value or program result."}`;
     setStatus("HP-97S key transfer accepted", "success");
   } catch (error) { elements.hp97sMessage.textContent = error.message; setStatus(error.message, "error"); logHP97S(error.message); }
   render();
@@ -486,6 +487,8 @@ function render() {
   elements.bytes.textContent = String(state.bytesReceived);
   elements.model.textContent = state.reading?.model ?? "Not verified";
   elements.firmware.textContent = state.reading?.firmware ?? "Not read";
+  elements.connectionRecovery.hidden = !state.settingsIssue;
+  elements.connectionDiagnosis.textContent = state.settingsIssue ?? "";
   elements.sourceBadge.textContent = elements.demo.checked ? "DEMO" : "WEB SERIAL";
   elements.sourceBadge.title = elements.demo.checked ? "Simulated calculator data. Demo mode does not open Bluetooth."
     : "Live calculator mode using a Bluetooth serial connection. Imported files may also be viewed.";
@@ -516,6 +519,17 @@ function failOperation(error, disconnectOnError = state.pending?.disconnectOnErr
   if (pending?.timer) clearTimeout(pending.timer);
   state.pending = null;
   state.busy = false;
+  if (pending?.kind === "settings") {
+    state.reading = null;
+    state.clockVerified = false;
+    const received = pending.decoder.bytes.length;
+    state.settingsIssue = received
+      ? `The calculator returned ${received} of the expected 8 settings bytes, but Teenio could not verify the reply. ${error.message}`
+      : pending.writeComplete
+        ? "The browser finished sending the settings query, but no calculator reply arrived. An open Bluetooth port does not confirm that the calculator is responding."
+        : "The browser did not confirm completion of the settings query. The Bluetooth connection may have stalled while sending.";
+    log(state.settingsIssue);
+  }
   pending?.onError?.(error);
   setStatus(error.message, "error");
   log(`Operation failed: ${error.message}`);
@@ -588,6 +602,7 @@ function receive(bytes, session) {
 
 function resetReadings() {
   state.reading = null;
+  state.settingsIssue = null;
   state.clockReading = null;
   state.clockVerified = false;
   state.memoryReading = null;
@@ -639,7 +654,7 @@ async function connect() {
     state.busy = false;
     state.bytesReceived = 0;
     resetReadings();
-    setStatus("Bluetooth serial connection open", "success");
+    setStatus("Bluetooth port open · read settings to verify the calculator");
   } catch (error) {
     if (state.session !== session) return;
     state.transport = null;
@@ -689,6 +704,10 @@ async function disconnect(reason = "Disconnected") {
 
 async function readSettings() {
   if (locked() || !state.connected) return;
+  // Do not leave write controls enabled by an older successful settings read.
+  state.reading = null;
+  state.clockVerified = false;
+  state.settingsIssue = null;
   state.busy = true;
   setStatus("Reading calculator information…");
   render();
@@ -697,19 +716,22 @@ async function readSettings() {
     return;
   }
   const decoder = new InformationDecoder();
-  state.pending = {
+  const pending = state.pending = {
     kind: "settings",
     decoder,
     timeoutMs: 5000,
     timeoutMessage: "The calculator information reply timed out.",
     disconnectOnError: false,
+    writeComplete: false,
   };
   armOperationTimeout();
   try {
     log(`Sending read-only calculator information query: ${hex(INFORMATION_QUERY)}`);
     await state.transport.write(INFORMATION_QUERY);
+    pending.writeComplete = true;
+    if (state.pending === pending) log("Browser finished sending settings query (07); waiting for the calculator reply.");
   } catch (error) {
-    failOperation(error, false);
+    if (state.pending === pending) failOperation(error, false);
   }
 }
 

@@ -42,12 +42,17 @@
       </nav>
 
       <button id="helpButton" class="secondary full" title="Open instructions for connecting, clock controls, memory, stored cards, uploads, backups and the HP-97S interface.">Help</button>
-      <p class="version">Web milestone 7 · v0.7.0</p>
+      <p class="version">Web milestone 7 · v0.7.1</p>
     </aside>
 
     <main>
       <div id="compatibility" class="notice error" hidden>
         This browser does not expose Web Serial. Open Teenio Web in Chrome 117 or later on a desktop computer.
+      </div>
+      <div id="connectionRecovery" class="notice error" role="status" hidden>
+        <p id="connectionDiagnosis"></p>
+        <p>Disconnect Teenio. Close other Teenio or CalCom connections, and put the HP-97 in RUN mode. On the calculator, hold <strong>f</strong>, press <strong>+</strong> to reach <strong>ConnEct AY En</strong>, then press <strong>A</strong>. Reconnect to TEENIX97 and choose <strong>Read settings</strong> once.</p>
+        <span>If it still does not respond, disconnect again, switch the calculator off/on, then repeat those steps. Save the activity log if the problem continues. The separate HP-97S mode is not needed for settings, clock or memory reads.</span>
       </div>
       <div id="hp97sNotice" class="notice hp97s-notice" hidden>
         Normal calculator commands are paused until the HP-97S interface is off or its connection has been recovered.
@@ -217,10 +222,11 @@
       <section id="page-hp97s" class="page" hidden>
         <div class="page-title">
           <div><p class="eyebrow">Calculator data entry</p><h2>HP-97S interface</h2></div>
-          <button id="hp97sToggle" class="primary" disabled title="Enter CalCom-compatible HP-97S test mode over the current connection. The calculator must be in RUN mode.">Turn interface on</button>
+          <button id="hp97sToggle" class="primary" disabled title="Enter CalCom-compatible HP-97S test mode over this connection. Use RUN and leave 97S off in the calculator’s own menu; Teenio enables the PC test mode.">Turn interface on</button>
         </div>
         <article class="panel feature-panel">
-          <p class="hint">Use the existing Bluetooth connection to read flags and send keys, as in CalCom’s HP-97S pane. No external equipment or second connection is needed.</p>
+          <p class="hint">CalCom-style PC test controls for flags and calculator keys, with a working Demo. Live Bluetooth compatibility is still being checked.</p>
+          <p class="hint"><strong>Hardware check in progress:</strong> firmware 21 has acknowledged mode entry over Bluetooth, but returned F5 to Read status. Its PC test commands may require the wired PC connection. No external device needs to be attached for the PC test. Demo is available while live compatibility is investigated.</p>
           <p id="hp97sRequirement" class="caption"></p>
           <div class="hp97s-status" aria-live="polite" aria-atomic="true">
             <div><span>Interface</span><strong id="hp97sMode" title="Whether Teenio has received confirmation that HP-97S mode is on or off.">Off</strong></div>
@@ -248,7 +254,7 @@
               <button class="secondary" data-hp97s-key="S" title="Insert S to change sign. This does not send it.">S Change sign</button>
               <button class="secondary" data-hp97s-key="A" title="Insert A to run the program at label A. It must be the last key. Review the entry before sending.">A Run from A</button>
             </div>
-            <p id="hp97sLegend" class="hint">Use digits 0–9 and the keys above. Teenio adds the final N (end) symbol automatically. Each symbol counts as one key.</p>
+            <p id="hp97sLegend" class="hint">Use digits 0–9 and the keys above. Teenio adds the final N (end) symbol when needed; Run A can finish the transfer itself. Each symbol counts as one key.</p>
             <p id="hp97sPreview" class="caption" role="status"></p>
             <button id="hp97sSend" class="primary" disabled title="Review the keys before sending. Teenio checks Ready, waits for each acknowledgement and never retries automatically.">Review and send…</button>
           </div>
@@ -324,6 +330,7 @@
       <li>Choose <strong>Read settings</strong>. A valid board reports HP-97 firmware 21.</li>
     </ol>
     <h2>Clock, memory and stored programs</h2>
+    <p><strong>Bluetooth opens, but Read settings times out:</strong> an open serial port is not proof of a responding calculator. The activity log distinguishes a query sent by the browser from a calculator reply. Zero received bytes means no reply reached Teenio; a partial or invalid reply is reported separately. Disconnect, close competing Teenio/CalCom connections, put the calculator in RUN and its normal ConnEct mode, then reconnect and read settings. If necessary, restart the calculator first. A failed settings read clears previous verification and disables dependent commands. Do not enable the separate HP-97S mode to fix normal reads.</p>
     <p><strong>Read clock</strong> performs the firmware-21 clock exchange. A clock write is available only after a successful live read and asks for confirmation before changing the board. <strong>Read memory &amp; registers</strong> transfers all 448 active RAM bytes and then displays the sixteen primary registers, all 224 program positions or the raw 64-register capture.</p>
     <p><strong>Stored programs</strong> scans a block's 54-slot directory and reads one 150-byte card without changing it. Captures use the same checked <code>.calcom-slot</code> format as Teenio for Mac. Valid HP-97 <code>.hpp</code> files can be opened and exported. A vacant slot cannot be exported as a program.</p>
     <h2>Reopen memory and export a complete program</h2>
@@ -359,13 +366,15 @@
     <p>Under <strong>Two-card backup files</strong>, open a saved upload backup (.json) and extract its full memory report or either original .calcom-slot capture. The file includes checksums for all three captures, including vacant or unrecognised slots. Opening it neither restores calculator data nor resumes a pending verification. Valid original program cards can be restored through the single-slot write workflow; restoration of vacant or unrecognised slots and numeric-register writing are not implemented.</p>
     <h2>HP-97S interface</h2>
     <ol>
-      <li>Connect and <strong>Read settings</strong> to identify HP-97 firmware 21. Choose <strong>HP-97S interface</strong>, put the calculator in RUN mode, and choose <strong>Turn interface on</strong>.</li>
+      <li>Connect and <strong>Read settings</strong> to identify HP-97 firmware 21. Leave <strong>97S off in the calculator’s own menu</strong>; that setting enables the separate external-equipment connection. Choose <strong>HP-97S interface</strong>, put the calculator in RUN mode, and choose <strong>Turn interface on</strong> here to enable the PC test connection.</li>
       <li>Choose <strong>Read status</strong> to see Ready and Flags 3–0. Idle flag notifications also update these readouts. Normal settings, clock, memory and card commands are paused while this mode is on.</li>
-      <li>Type up to nine digits or keys. Use <strong>.</strong> for decimal point, <strong>X</strong> for exponent, <strong>E</strong> for ENTER, <strong>S</strong> for change sign and <strong>A</strong> for Run from A. Run A must be last. Teenio adds the tenth end symbol (N); you may also type one N at the end. Spaces, minus signs and other characters are rejected rather than silently changed.</li>
+      <li>Type up to nine digits or keys. Use <strong>.</strong> for decimal point, <strong>X</strong> for exponent, <strong>E</strong> for ENTER, <strong>S</strong> for change sign and <strong>A</strong> for Run from A. Run A must be last. Teenio adds an end symbol (N) when needed; you may also type one N at the end. If Run A completes the transfer, no further symbol is sent. Spaces, minus signs and other characters are rejected rather than silently changed.</li>
       <li>Choose <strong>Review and send…</strong>, check the entry, then <strong>Send reviewed keys</strong>. Teenio freshly checks Ready before sending and waits for a reply to each key. If not ready, no keys are sent. Check RUN mode, whether a program is busy and Flag 3; then read status again.</li>
       <li>Check the calculator display. Accepted keys may change X, the stack and flags. Run A executes the program at label A; the interface does not return its result. After live input, old memory captures and pending upload comparisons are cleared. Turn the interface off and read settings and memory again to obtain current values.</li>
       <li>Choose <strong>Turn interface off</strong> when finished. Disconnect also requests a confirmed mode exit when idle. Do not close or reload the page while this mode is active.</li>
     </ol>
+    <p><strong>F5 while turning the interface on:</strong> this is not the required ON acknowledgement (FF). Firmware 21 can return F5 when 97S mode is already active. Leave 97S off in the calculator menu and follow the recovery steps below, then use Teenio to turn the interface on. Teenio stops without sending any keys or an automatic reset.</p>
+    <p><strong>Mode turns on, but Read status returns F5:</strong> this has been observed over Bluetooth with firmware 21. F5 is not a valid flags reply or proof of a confirmed exit. Firmware inspection suggests that HP-97S test commands use the wired PC connection internally, while normal Bluetooth functions use another serial channel. This still needs confirmation with CalCom or the board developer. Attaching equipment to the separate external-device port is not required for the PC test. Stop and recover the connection; repeating status queries or changing the Bluetooth baud rate is not an established fix. Teenio currently selects Bluetooth devices only.</p>
     <p><strong>Interrupted exchange:</strong> a timeout, unexpected reply or lost connection stops the exchange without retrying. Some keys may already have been accepted. Disconnect, switch the calculator off/on, restore Bluetooth connection mode, then choose <strong>I have restarted the calculator</strong> before reconnecting. The same tab remembers an unfinished live mode across a reload. Inspect the calculator before repeating any entry.</p>
     <p><strong>Demo:</strong> follows the same command/acknowledgement sequence without Bluetooth. It records keys and simulates flags and readiness; it is not a calculator emulator. After sending without Run A, expand <strong>Demo flag controls</strong> and clear Flag 3 to make it ready again. These controls do not exist for a live calculator.</p>
     <p>This implements CalCom’s PC test mode through the existing connection. The separate isolated external-equipment connector is not opened or configured. HP-97S hardware behaviour still needs verification. Unverified notifications arriving during a key transfer cause a stop, rather than being guessed at. <strong>Clear log</strong> clears only the display log; it never clears calculator data.</p>
@@ -376,6 +385,6 @@
     <button id="closeHelp" class="primary" title="Close Help and return to the current Teenio screen.">Close</button>
   </dialog>
 
-  <script type="module" src="app.js?v=0.7.0"></script>
+  <script type="module" src="app.js?v=0.7.1"></script>
 </body>
 </html>

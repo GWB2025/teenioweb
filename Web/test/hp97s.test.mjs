@@ -102,6 +102,60 @@ test("HP-97S rejected mode entry leaves ordinary commands available and can be t
   controller.close();
 });
 
+test("HP-97S explains the logged F5 entry rejection without assuming ON or confirmed OFF", async () => {
+  const { controller, sent } = scripted([[0x12, 0xF5]]);
+  await assert.rejects(controller.enter(), /F5.*separate 97S mode.*No keys were sent/);
+  assert.equal(controller.mode, "fault");
+  assert.equal(controller.blocksNormalCommands, true);
+  assert.equal(controller.status, null);
+  await assert.rejects(controller.enter());
+  await assert.rejects(controller.readStatus());
+  await assert.rejects(controller.send("3"));
+  await assert.rejects(controller.leave());
+  assert.deepEqual(sent, [0x12], "Do not guess an exit command or probe the external-equipment mode");
+});
+
+test("HP-97S handles the live FF entry followed by F5 status reply without sending keys or guessing OFF", async () => {
+  for (const action of [controller => controller.readStatus(), controller => controller.send("34.27")]) {
+    const { controller, sent } = scripted([[0x12, 0xFF], [0xF0, 0xF5]]);
+    await controller.enter();
+    assert.equal(controller.mode, "on");
+    await assert.rejects(action(controller), /entry was acknowledged.*status query returned F5.*wired PC connection/);
+    assert.equal(controller.mode, "fault");
+    assert.equal(controller.blocksNormalCommands, true);
+    assert.equal(controller.status, null);
+    assert.equal(controller.lastAccepted, null);
+    await assert.rejects(controller.readStatus());
+    await assert.rejects(controller.send("1"));
+    await assert.rejects(controller.leave());
+    assert.deepEqual(sent, [0x12, 0xF0], "No transfer request, key, retry or guessed exit follows F5");
+  }
+});
+
+test("HP-97S firmware-21 Run A acceptance ends the transfer without a trailing NOP", async () => {
+  const pairs = [[0x12, 0xFF], [0xF0, 0x10], [0xF1, 0xF1], [1, 0xF1], [1, 0xF1], [13, 0xA0], [0xF0, 0x00], [0xF5, 0xF5]];
+  const { controller, sent } = scripted(pairs);
+  await controller.enter();
+  await controller.send("11A");
+  assert.equal(controller.lastAccepted.text, "11A");
+  assert.equal(controller.mode, "on");
+  assert.equal(controller.status, null);
+  assert.equal(sent.includes(15), false);
+  assert.equal((await controller.readStatus()).ready, false);
+  await controller.leave();
+  assert.deepEqual(sent, pairs.map(pair => pair[0]));
+});
+
+test("HP-97S sends the final NOP after Run A only if the calculator prompts for it", async () => {
+  const pairs = [[0x12, 0xFF], [0xF0, 0x10], [0xF1, 0xF1], [13, 0xF1], [15, 0xA0]];
+  const { controller, sent } = scripted(pairs);
+  await controller.enter();
+  await controller.send("A");
+  assert.equal(controller.lastAccepted.text, "A");
+  assert.deepEqual(sent, pairs.map(pair => pair[0]));
+  controller.close();
+});
+
 test("HP-97S freshly checks readiness and sends no keys when not ready", async () => {
   const { controller, sent } = scripted([[0x12, 0xFF], [0xF0, 0x10], [0xF0, 0x08]]);
   await controller.enter();
