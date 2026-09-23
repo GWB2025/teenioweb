@@ -19,29 +19,29 @@
         <h1>Teenio <span>Web</span></h1>
       </div>
       <div class="header-actions">
-        <button id="install" class="secondary" hidden>Install app</button>
-        <span id="sourceBadge" class="badge">WEB SERIAL</span>
+        <button id="install" class="secondary" hidden title="Install Teenio Web as a standalone window on this computer, if your browser supports it.">Install app</button>
+        <span id="sourceBadge" class="badge" title="Shows whether Teenio is using a real calculator connection or simulated Demo data.">WEB SERIAL</span>
       </div>
     </header>
 
     <aside>
       <section class="connection-card">
         <h2>Connection</h2>
-        <label class="toggle"><input id="demo" type="checkbox"> <span>Demo mode</span></label>
-        <button id="connect" class="primary" aria-busy="false"><span id="connectSpinner" class="connect-spinner" aria-hidden="true" hidden></span><span id="connectLabel">Connect to TEENIX97</span></button>
-        <p id="status" class="status" role="status" aria-live="polite" aria-atomic="true">Ready to connect</p>
+        <label class="toggle" title="Use an example calculator without Bluetooth. Switching mode disconnects the current session."><input id="demo" type="checkbox" title="Use an example calculator without Bluetooth. Switching mode disconnects the current session."> <span>Demo mode</span></label>
+        <button id="connect" class="primary" aria-busy="false" title="Choose the paired TEENIX97 in the browser’s device chooser and open its Bluetooth serial connection."><span id="connectSpinner" class="connect-spinner" aria-hidden="true" hidden></span><span id="connectLabel">Connect to TEENIX97</span></button>
+        <p id="status" class="status" role="status" aria-live="polite" aria-atomic="true" title="The latest connection or transfer result. See Connection activity below for details.">Ready to connect</p>
         <p class="hint">Pair TEENIX97 in macOS or Windows Bluetooth settings first. Chrome will then show it in the serial-device chooser.</p>
       </section>
 
       <nav aria-label="Teenio sections">
-        <button data-page="settings" class="active">Settings</button>
-        <button data-page="clock">Clock</button>
-        <button data-page="memory">Memory & registers</button>
-        <button data-page="programs">Stored programs</button>
+        <button data-page="settings" class="active" title="Show the latest model and settings already read. Choose Read settings to request fresh values.">Settings</button>
+        <button data-page="clock" title="Show the board clock and date/time controls. Choose Read clock to request the current time.">Clock</button>
+        <button data-page="memory" title="View the captured registers, program listing and raw RAM, or prepare two program cards.">Memory & registers</button>
+        <button data-page="programs" title="Browse card storage, read or import cards, and manage backed-up uploads.">Stored programs</button>
       </nav>
 
-      <button id="helpButton" class="secondary full">Help</button>
-      <p class="version">Web milestone 6 · v0.6.0</p>
+      <button id="helpButton" class="secondary full" title="Open instructions for connecting, clock controls, memory, stored cards, uploads and backups.">Help</button>
+      <p class="version">Web milestone 6 · v0.6.1</p>
     </aside>
 
     <main>
@@ -52,36 +52,36 @@
       <section id="page-settings" class="page">
         <div class="page-title">
           <div><p class="eyebrow">Calculator information</p><h2>Your HP-97</h2></div>
-          <button id="readSettings" class="primary" disabled>Read settings</button>
+          <button id="readSettings" class="primary" disabled title="Read the calculator model, firmware and current settings. This does not change any setting.">Read settings</button>
         </div>
         <div class="metrics">
-          <article><span>Model</span><strong id="model">Not verified</strong></article>
-          <article><span>Firmware</span><strong id="firmware">Not read</strong></article>
-          <article><span>Bytes received</span><strong id="bytes">0</strong></article>
+          <article><span>Model</span><strong id="model" title="Calculator model identified by the latest Read settings response.">Not verified</strong></article>
+          <article><span>Firmware</span><strong id="firmware" title="Board firmware version identified by Read settings. Live transfers require HP-97 firmware 21.">Not read</strong></article>
+          <article><span>Bytes received</span><strong id="bytes" title="Total bytes received through this connection, including transfer replies.">0</strong></article>
         </div>
         <article class="panel">
-          <div class="panel-heading"><h3>Calculator settings</h3><button id="saveSettings" class="secondary" disabled>Save report</button></div>
+          <div class="panel-heading"><h3>Calculator settings</h3><button id="saveSettings" class="secondary" disabled title="Download the latest settings as a text report. Programs and registers are saved separately with Save memory.">Save report</button></div>
           <div id="settings" class="settings-grid"><p class="empty">Connect and choose <strong>Read settings</strong>.</p></div>
-          <p id="lastRead" class="caption">No settings read in this session</p>
+          <p id="lastRead" class="caption" title="When the displayed settings were last read. Choose Read settings to refresh them.">No settings read in this session</p>
         </article>
       </section>
 
       <section id="page-clock" class="page" hidden>
         <div class="page-title">
           <div><p class="eyebrow">Board clock</p><h2>Clock</h2></div>
-          <button id="readClock" class="primary" disabled>Read clock</button>
+          <button id="readClock" class="primary" disabled title="Read the board’s date and time without changing it. Read settings first to verify the calculator.">Read clock</button>
         </div>
         <article class="panel feature-panel">
           <p class="hint">Read the clock before setting it. A live write changes only the time and date registers, preserves alarm and display-format registers, then reads the result back.</p>
           <div class="clock-display">
             <span>Calculator time</span>
-            <strong id="clockValue">Clock not read</strong>
+            <strong id="clockValue" title="The date and time returned by the last clock read. Choose Read clock to refresh this snapshot.">Clock not read</strong>
           </div>
           <div class="clock-controls">
             <label for="clockInput">New date and time</label>
-            <input id="clockInput" type="datetime-local" step="1">
-            <button id="useComputerTime" class="secondary">Use computer time</button>
-            <button id="setClock" class="primary" disabled>Set calculator clock</button>
+            <input id="clockInput" type="datetime-local" step="1" title="Enter the local date and time to use when setting the calculator clock. Editing this field does not send it.">
+            <button id="useComputerTime" class="secondary" title="Copy this computer’s current local date and time into the field. Use Set calculator clock to send it.">Use computer time</button>
+            <button id="setClock" class="primary" disabled title="After reading the clock, set the entered date and time and check it by reading back. Live changes ask for confirmation.">Set calculator clock</button>
           </div>
           <p id="clockMessage" class="caption">Read the board clock before setting it.</p>
         </article>
@@ -90,39 +90,39 @@
       <section id="page-memory" class="page" hidden>
         <div class="page-title">
           <div><p class="eyebrow">Active calculator RAM</p><h2>Memory & registers</h2></div>
-          <button id="readMemory" class="primary" disabled>Read memory & registers</button>
+          <button id="readMemory" class="primary" disabled title="Read all 448 active memory bytes, including the program and sixteen primary registers. Read settings first.">Read memory & registers</button>
         </div>
         <article class="panel feature-panel">
           <div class="panel-heading">
             <div class="segmented" role="group" aria-label="Memory view">
-              <button class="active" data-memory-view="registers">Registers</button>
-              <button data-memory-view="listing">Program listing</button>
-              <button data-memory-view="raw">Raw RAM</button>
+              <button class="active" data-memory-view="registers" title="Show the sixteen primary registers: 0–9, A–E and I, from the current memory capture.">Registers</button>
+              <button data-memory-view="listing" title="Show all 224 program positions, instruction names and aligned calculator key codes.">Program listing</button>
+              <button data-memory-view="raw" title="Show all 64 internal RAM rows in hexadecimal from the current memory capture.">Raw RAM</button>
             </div>
             <div>
-              <button id="openMemory" class="secondary" title="Reopen a saved Teenio active-memory text report without connecting to a calculator">Open memory capture…</button>
-              <input id="memoryFile" type="file" accept=".txt,text/plain" hidden>
-              <button id="saveMemory" class="secondary" disabled>Save memory</button>
-              <button id="saveListing" class="secondary" disabled>Save listing</button>
+              <button id="openMemory" class="secondary" title="Open a Teenio Mac or Web memory text report containing all 448 RAM bytes. HPP cards and program listings are different formats.">Open memory capture…</button>
+              <input id="memoryFile" type="file" accept=".txt,text/plain" hidden title="Choose a complete Teenio active-memory text report to reopen.">
+              <button id="saveMemory" class="secondary" disabled title="Download the full 448-byte memory capture as a text report, including the program and numeric registers.">Save memory</button>
+              <button id="saveListing" class="secondary" disabled title="Download an aligned listing of all 224 program positions. A listing cannot be reopened as a memory capture.">Save listing</button>
             </div>
           </div>
           <div id="memoryContent" class="memory-content"><p class="empty">Read active memory to display all sixteen registers and 224 program positions.</p></div>
           <p id="memoryMessage" class="caption">Read settings first to verify HP-97 firmware 21.</p>
         </article>
         <article class="panel feature-panel">
-          <div class="panel-heading"><h3>Prepare a two-card program</h3><button id="chooseTemplate" class="secondary" title="Read or open a program card to supply the exported cards’ display settings and flags">Choose card template…</button></div>
+          <div class="panel-heading"><h3>Prepare a two-card program</h3><button id="chooseTemplate" class="secondary" title="Go to Stored programs to read or open a card that supplies display settings and flags for the prepared cards.">Choose card template…</button></div>
           <p class="hint">Preserve all 224 positions, including trailing R/S instructions, as two CalCom-compatible HPP files. Exporting leaves the calculator unchanged.</p>
-          <p id="exportMemorySource" class="caption"></p>
-          <p id="cardTemplate" class="caption"></p>
+          <p id="exportMemorySource" class="caption" title="The memory capture used to prepare both cards. Read or open a different capture to change the program source."></p>
+          <p id="cardTemplate" class="caption" title="The card supplying display settings and flags. Program instructions come from the memory capture."></p>
           <div class="program-export-controls">
             <label for="programName">Program name <span class="hint">(up to 13 characters)</span></label>
-            <input id="programName" type="text" maxlength="13" value="RAM restore" autocomplete="off" title="Plain English letters, numbers and punctuation; card numbers are added automatically">
-            <button id="prepareProgram" class="primary" disabled>Prepare two cards</button>
+            <input id="programName" type="text" maxlength="13" value="RAM restore" autocomplete="off" title="Name the prepared program using up to 13 plain English letters, numbers or punctuation. Card numbers are added automatically.">
+            <button id="prepareProgram" class="primary" disabled title="Build and check two cards covering all 224 program positions, using the memory capture and card template.">Prepare two cards</button>
           </div>
           <div id="programExports" class="program-exports" hidden>
-            <div><strong id="part1Name"></strong><span>Positions 001–112 · load first</span><button id="exportPart1" class="secondary" disabled>Save card 1 of 2 (.hpp)</button></div>
-            <div><strong id="part2Name"></strong><span>Positions 113–224 · load second</span><button id="exportPart2" class="secondary" disabled>Save card 2 of 2 (.hpp)</button></div>
-            <button id="chooseUploadDestination" class="primary" title="Choose two adjacent storage slots for these prepared cards">Choose upload destination…</button>
+            <div><strong id="part1Name"></strong><span>Positions 001–112 · load first</span><button id="exportPart1" class="secondary" disabled title="Download positions 001–112 as the first HPP program card. Keep it with card 2 and load it first.">Save card 1 of 2 (.hpp)</button></div>
+            <div><strong id="part2Name"></strong><span>Positions 113–224 · load second</span><button id="exportPart2" class="secondary" disabled title="Download positions 113–224 as the second HPP program card. Load it after card 1.">Save card 2 of 2 (.hpp)</button></div>
+            <button id="chooseUploadDestination" class="primary" title="Go to Stored programs to choose two adjacent destination slots for the prepared cards. This does not start an upload.">Choose upload destination…</button>
           </div>
           <p id="programExportMessage" class="caption" role="status">This exports the program only. Save memory above to keep the numeric registers too.</p>
         </article>
@@ -130,15 +130,15 @@
       <section id="page-programs" class="page" hidden>
         <div class="page-title">
           <div><p class="eyebrow">Calculator card storage</p><h2>Stored programs</h2></div>
-          <button id="scanDirectory" class="primary" disabled>Scan block directory</button>
+          <button id="scanDirectory" class="primary" disabled title="Read the names and occupancy of all 54 slots in the selected block. No stored card is changed.">Scan block directory</button>
         </div>
         <article class="panel feature-panel">
           <div class="storage-controls">
             <label for="storageBlock">Storage block</label>
-            <select id="storageBlock" aria-label="Storage block"></select>
+            <select id="storageBlock" aria-label="Storage block" title="Choose storage block 0–E for directory scans, card reads and write destinations. Changing this selection sends nothing."></select>
             <label for="storageSlot">Slot</label>
-            <select id="storageSlot" aria-label="Stored-program slot"></select>
-            <button id="readSlot" class="primary" disabled>Read selected slot</button>
+            <select id="storageSlot" aria-label="Stored-program slot" title="Choose slot 00–53 for a card read or write. For a two-card upload, choose the first slot, 00–52."></select>
+            <button id="readSlot" class="primary" disabled title="Read one 150-byte card from the selected block and slot into Current card. This does not load the calculator’s active program.">Read selected slot</button>
           </div>
           <p class="hint">A directory scan and slot read are read-only. Each slot contains one 150-byte HP-97 program card; a larger program may use two slots.</p>
           <p class="caption">Click a slot number or program name below to select it.</p>
@@ -150,33 +150,33 @@
           <div class="panel-heading">
             <h3>Current card</h3>
             <div>
-              <button id="openCapture" class="secondary">Open capture…</button>
-              <button id="openHPP" class="secondary">Open HP-97 card…</button>
-              <input id="captureFile" type="file" accept=".calcom-slot,application/json" hidden>
-              <input id="hppFile" type="file" accept=".hpp,application/octet-stream" hidden>
+              <button id="openCapture" class="secondary" title="Open a saved .calcom-slot capture and check its integrity. This changes only the card displayed in Teenio.">Open capture…</button>
+              <button id="openHPP" class="secondary" title="Open a CalCom-compatible HP-97 .hpp card and check its format and checksum before use.">Open HP-97 card…</button>
+              <input id="captureFile" type="file" accept=".calcom-slot,application/json" hidden title="Choose a saved Teenio .calcom-slot capture.">
+              <input id="hppFile" type="file" accept=".hpp,application/octet-stream" hidden title="Choose one HP-97 .hpp program card.">
             </div>
           </div>
           <div id="storedCard" class="stored-card"><p class="empty">Read a slot or open a saved Teenio capture or HP-97 .hpp card.</p></div>
           <div class="card-actions">
-            <button id="saveCapture" class="secondary" disabled>Save capture</button>
-            <button id="exportHPP" class="secondary" disabled>Export HP-97 card</button>
-            <button id="writeSlot" class="primary" title="Review the current card and destination, save a backup, then write and verify one stored slot" disabled>Write to selected slot…</button>
+            <button id="saveCapture" class="secondary" disabled title="Download an exact .calcom-slot capture with its integrity hash, including a vacant or unrecognised slot.">Save capture</button>
+            <button id="exportHPP" class="secondary" disabled title="Download the current validated program card as a CalCom-compatible .hpp file. Vacant slots cannot be exported.">Export HP-97 card</button>
+            <button id="writeSlot" class="primary" disabled title="Review writing the current card to the selected slot. Its existing contents must be backed up before replacement.">Write to selected slot…</button>
           </div>
           <p id="writeAvailability" class="caption"></p>
           <p id="storageMessage" class="caption" role="status">Open or read a program card, choose its destination, then review the write.</p>
           <div class="backup-panel">
             <p id="backupMessage" class="caption">No destination backup in this session.</p>
-            <button id="saveBackup" class="secondary" title="Download another copy of the most recent destination backup" disabled>Save backup copy</button>
+            <button id="saveBackup" class="secondary" disabled title="Download another copy of the original slot contents from the most recent single-card write attempt.">Save backup copy</button>
           </div>
         </article>
         <article class="panel feature-panel">
-          <div class="panel-heading"><h3>Upload a two-card program</h3><button id="prepareForUpload" class="secondary">Prepare from memory…</button></div>
+          <div class="panel-heading"><h3>Upload a two-card program</h3><button id="prepareForUpload" class="secondary" title="Go to Memory &amp; registers to read or open a memory capture and prepare both program cards.">Prepare from memory…</button></div>
           <p id="pairSource" class="caption"></p>
           <p id="pairDestination" class="caption"></p>
           <p class="hint">Use the block and slot selectors above. Prefer two vacant adjacent slots. Both slot backups and current memory are saved together in one checked backup file before either card is written.</p>
-          <button id="uploadPair" class="primary" disabled>Upload both cards…</button>
+          <button id="uploadPair" class="primary" disabled title="Review replacing two adjacent slots with the prepared cards. Both slots and current memory are backed up before writing.">Upload both cards…</button>
           <p id="pairAvailability" class="caption"></p>
-          <progress id="pairProgress" aria-label="Two-card upload in progress" hidden></progress>
+          <progress id="pairProgress" aria-label="Two-card upload in progress" hidden title="A two-card upload is in progress. The message below identifies the current backup, write or read-back step."></progress>
           <p id="pairMessage" class="caption" role="status">Uploading stores the cards. Load them on the calculator in the next step.</p>
           <div id="loadInstructions" class="loading-guide" hidden>
             <h3>Load and verify</h3>
@@ -187,22 +187,22 @@
               <li>Before running the program or changing registers, choose <strong>Verify loaded program</strong> here. If necessary, reconnect the same calculator and read settings first.</li>
             </ol>
             <div class="card-actions">
-              <button id="simulateLoad" class="secondary" hidden>Simulate loading both cards</button>
-              <button id="verifyProgram" class="primary" disabled>Verify loaded program</button>
-              <button id="saveVerification" class="secondary" disabled>Save verification report</button>
+              <button id="simulateLoad" class="secondary" hidden title="In Demo mode, load both uploaded cards into simulated program memory while preserving the sixteen registers.">Simulate loading both cards</button>
+              <button id="verifyProgram" class="primary" disabled title="After loading both cards on the calculator, read memory and compare all 224 positions and sixteen registers with the saved comparison.">Verify loaded program</button>
+              <button id="saveVerification" class="secondary" disabled title="Download the latest loaded-program comparison result and its fresh memory capture as a text report.">Save verification report</button>
             </div>
             <p id="verificationMessage" class="caption" role="status"></p>
           </div>
           <details class="backup-tools">
-            <summary>Two-card backup files</summary>
+            <summary title="Show tools to reopen an upload backup and extract its original memory and slot captures.">Two-card backup files</summary>
             <p id="pairBackupSummary" class="caption"></p>
             <div class="card-actions">
-              <button id="openPairBackup" class="secondary">Open upload backup…</button>
-              <input id="pairBackupFile" type="file" accept=".json,application/json" hidden>
-              <button id="savePairBackup" class="secondary" disabled>Save upload backup copy</button>
-              <button id="extractPairMemory" class="secondary" disabled>Extract memory report</button>
-              <button id="extractPairSlot1" class="secondary" disabled>Extract first slot backup</button>
-              <button id="extractPairSlot2" class="secondary" disabled>Extract second slot backup</button>
+              <button id="openPairBackup" class="secondary" title="Open and check a saved two-card upload backup. Opening it does not restore data to the calculator.">Open upload backup…</button>
+              <input id="pairBackupFile" type="file" accept=".json,application/json" hidden title="Choose a Teenio two-card upload backup in JSON format.">
+              <button id="savePairBackup" class="secondary" disabled title="Download another copy of both original destination slots and the memory captured before the two-card upload.">Save upload backup copy</button>
+              <button id="extractPairMemory" class="secondary" disabled title="Save the pre-upload memory from the open backup as a Teenio memory text report.">Extract memory report</button>
+              <button id="extractPairSlot1" class="secondary" disabled title="Save the original first destination slot from the upload backup as a .calcom-slot capture.">Extract first slot backup</button>
+              <button id="extractPairSlot2" class="secondary" disabled title="Save the original second destination slot from the upload backup as a .calcom-slot capture.">Extract second slot backup</button>
             </div>
             <p class="hint">Extracted slot backups use the existing .calcom-slot format. Opening or extracting a backup does not restore calculator data. Keep the backup file after any interrupted upload.</p>
           </details>
@@ -210,8 +210,8 @@
       </section>
 
       <section class="activity-panel">
-        <div class="panel-heading"><h3>Connection activity</h3><div><button id="saveLog" class="secondary" disabled>Save log</button><button id="clearLog" class="secondary">Clear</button></div></div>
-        <pre id="activity" aria-live="polite"></pre>
+        <div class="panel-heading"><h3>Connection activity</h3><div><button id="saveLog" class="secondary" disabled title="Download the current connection and transfer activity as a text log for troubleshooting.">Save log</button><button id="clearLog" class="secondary" title="Clear only the displayed activity log. This does not disconnect or change calculator data.">Clear</button></div></div>
+        <pre id="activity" aria-live="polite" title="Connection events and transfer replies, with timestamps. Use Save log to keep a copy."></pre>
       </section>
     </main>
   </div>
@@ -222,8 +222,8 @@
     <p id="writeReview"></p>
     <p>Teenio reads the destination, saves and checks its backup, then writes the card and reads it back. Keep the backup until you have checked the program. Demo mode keeps its backup in memory; use Save backup copy to keep it after closing the page.</p>
     <div class="card-actions">
-      <button id="cancelWrite" class="secondary" autofocus>Cancel</button>
-      <button id="writeConfirm" class="primary">Choose backup file and write</button>
+      <button id="cancelWrite" class="secondary" autofocus title="Close this review without starting the slot backup or write.">Cancel</button>
+      <button id="writeConfirm" class="primary" title="Choose a backup file, save and check the destination’s original contents, then write and verify the current card.">Choose backup file and write</button>
     </div>
   </dialog>
 
@@ -233,12 +233,13 @@
     <p id="pairReview"></p>
     <p>Teenio saves and checks the complete backup, writes card 1 and verifies it, then writes and verifies card 2. A failure stops the upload; it does not retry or restore automatically. The pair may be incomplete if writing has started.</p>
     <p>Keep the calculator powered and leave its controls untouched during the upload. Demo mode keeps its backup in memory until you save a copy.</p>
-    <div class="card-actions"><button id="cancelPair" class="secondary" autofocus>Cancel</button><button id="confirmPair" class="primary">Choose backup file and upload</button></div>
+    <div class="card-actions"><button id="cancelPair" class="secondary" autofocus title="Close this review without starting the backups or writing either card.">Cancel</button><button id="confirmPair" class="primary" title="Choose a backup file, save and check both destination slots and active memory, then write and verify both cards.">Choose backup file and upload</button></div>
   </dialog>
 
   <dialog id="help">
-    <form method="dialog"><button class="dialog-close" aria-label="Close help">×</button></form>
+    <form method="dialog"><button class="dialog-close" aria-label="Close help" title="Close Help and return to the current Teenio screen.">×</button></form>
     <p class="eyebrow">Teenio Web help</p>
+    <p>Hover over a button, field, selector or directory entry to see a tooltip explaining its purpose. The sections below provide the complete instructions.</p>
     <h2>First connection</h2>
     <ol>
       <li>Use Chrome 117 or later on macOS or Windows.</li>
@@ -285,9 +286,9 @@
     <p>This milestone runs locally in your browser. It sends calculator bytes only through the serial device you select and does not upload them to a server. Demo mode never opens Bluetooth.</p>
     <h2>Acknowledgements</h2>
     <p>Teenio acknowledges Tony Nixon (TeenNix), creator of the TEENIX97 replacement board and the original CalCom application and documentation.</p>
-    <button id="closeHelp" class="primary">Close</button>
+    <button id="closeHelp" class="primary" title="Close Help and return to the current Teenio screen.">Close</button>
   </dialog>
 
-  <script type="module" src="app.js?v=0.6.0"></script>
+  <script type="module" src="app.js?v=0.6.1"></script>
 </body>
 </html>

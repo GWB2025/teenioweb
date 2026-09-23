@@ -98,6 +98,7 @@ function renderSettings() {
   elements.settings.replaceChildren(...state.reading.settings.map(([name, value]) => {
     const row = document.createElement("div");
     row.className = "setting-row";
+    row.title = `${name}: ${value}. Reported by the last settings read; choose Read settings to refresh. This row is read-only.`;
     const label = document.createElement("span");
     label.textContent = name;
     const result = document.createElement("strong");
@@ -118,10 +119,11 @@ function renderClock() {
 function memoryRow(className, values) {
   const row = document.createElement("div");
   row.className = className;
-  values.forEach(({ text, className: valueClass }) => {
+  values.forEach(({ text, className: valueClass, title }) => {
     const value = document.createElement("span");
     value.textContent = text;
     if (valueClass) value.className = valueClass;
+    if (title) value.title = title;
     row.append(value);
   });
   return row;
@@ -140,18 +142,21 @@ function renderMemory() {
   }
   if (state.memoryView === "registers") {
     elements.memoryContent.replaceChildren(...state.memoryReading.registers.map(register => memoryRow("register-row", [
-      { text: register.name }, { text: register.value }, { text: register.hex, className: "raw" },
+      { text: register.name, title: `Primary storage register ${register.name}.` },
+      { text: register.value, title: `Value decoded from register ${register.name} in the current memory capture.` },
+      { text: register.hex, className: "raw", title: `The seven original bytes for register ${register.name}, shown in hexadecimal.` },
     ])));
   } else if (state.memoryView === "listing") {
     elements.memoryContent.replaceChildren(...state.memoryReading.program.map(step => memoryRow("listing-row", [
-      { text: String(step.number).padStart(3, "0") },
-      { text: step.opcode.toString(16).padStart(2, "0").toUpperCase() },
-      { text: step.instruction },
-      { text: `[${step.keyCodes}]` },
+      { text: String(step.number).padStart(3, "0"), title: `Program position ${step.number} of 224. Trailing R/S positions are retained.` },
+      { text: step.opcode.toString(16).padStart(2, "0").toUpperCase(), title: "The decoded instruction code in hexadecimal." },
+      { text: step.instruction, title: `Instruction at position ${step.number}: ${step.instruction}.` },
+      { text: `[${step.keyCodes}]`, title: "Key codes corresponding to this instruction in the calculator’s program listing." },
     ])));
   } else {
     const raw = document.createElement("pre");
     raw.className = "raw-memory";
+    raw.title = "All 64 internal RAM rows: each hexadecimal address is followed by seven captured bytes.";
     raw.textContent = state.memoryReading.rows.join("\n");
     elements.memoryContent.replaceChildren(raw);
   }
@@ -258,7 +263,7 @@ function renderStorage() {
       button.type = "button";
       button.dataset.slot = String(index);
       button.disabled = locked();
-      button.title = `Select block ${block.toString(16).toUpperCase()} slot ${String(index).padStart(2, "0")}`;
+      button.title = `Select block ${block.toString(16).toUpperCase()}, slot ${String(index).padStart(2, "0")}: ${entry ? (entry.name || "Occupied, unnamed card") : "Vacant"}. Then choose Read selected slot. Selecting an entry does not read or write data.`;
       const number = document.createElement("span");
       number.textContent = String(index).padStart(2, "0");
       const name = document.createElement("span");
@@ -288,8 +293,15 @@ function renderStorage() {
   ];
   const summary = document.createElement("div");
   summary.className = "card-summary";
+  const fieldTips = {
+    Name: "The name stored in the current card, which may differ from its filename.",
+    Source: "Where this card was read or imported. Write destinations are chosen separately above.",
+    Format: "Whether the current capture is a valid program card, a vacant slot or an unrecognised record.",
+    Integrity: "The capture’s SHA-256 hash and, for recognised cards, the program-card checksum result.",
+  };
   fields.forEach(([label, value]) => {
     const field = document.createElement("div");
+    field.title = fieldTips[label];
     const caption = document.createElement("span");
     caption.textContent = label;
     const result = document.createElement("strong");
@@ -302,6 +314,11 @@ function renderStorage() {
 
 function render() {
   elements.connectLabel.textContent = state.connecting ? "Connecting…" : state.connected ? "Disconnect" : "Connect to TEENIX97";
+  elements.connect.title = state.closing ? "Closing the connection and releasing the serial port."
+    : state.connecting ? "Waiting for device selection or the Bluetooth serial connection to open."
+    : state.connected ? (elements.demo.checked ? "End the simulated connection. No Bluetooth device is in use." : "Close this calculator connection and release its serial port for another app.")
+    : elements.demo.checked ? "Connect to an example calculator in this browser. No Bluetooth device is used."
+    : "Choose the paired TEENIX97 in the browser’s device chooser and open its Bluetooth serial connection.";
   elements.connectSpinner.hidden = !state.connecting;
   elements.connect.setAttribute("aria-busy", String(state.connecting));
   elements.connect.disabled = locked();
@@ -312,6 +329,8 @@ function render() {
   elements.model.textContent = state.reading?.model ?? "Not verified";
   elements.firmware.textContent = state.reading?.firmware ?? "Not read";
   elements.sourceBadge.textContent = elements.demo.checked ? "DEMO" : "WEB SERIAL";
+  elements.sourceBadge.title = elements.demo.checked ? "Simulated calculator data. Demo mode does not open Bluetooth."
+    : "Live calculator mode using a Bluetooth serial connection. Imported files may also be viewed.";
   renderSettings();
   renderClock();
   renderMemory();
@@ -693,6 +712,9 @@ function reviewPairUpload() {
     cards: program.cards.map(card => ({ ...card, record: card.record.slice() })), started: false, writeStarted: false };
   elements.pairReview.textContent = `Upload “${program.cards[0].name}” and “${program.cards[1].name}” to ${elements.demo.checked ? "Demo " : ""}block ${block.toString(16).toUpperCase()}, slots ${String(slot).padStart(2, "0")} and ${String(slot + 1).padStart(2, "0")}? Both existing slots will be replaced. Current memory and both slots will be backed up first.`;
   elements.confirmPair.textContent = elements.demo.checked ? "Back up and upload Demo cards" : "Choose backup file and upload";
+  elements.confirmPair.title = elements.demo.checked
+    ? "Keep both destination backups and current memory in this Demo session, then write and verify both simulated slots."
+    : "Choose a backup file, save and check both destination slots and active memory, then write and verify both cards.";
   render();
   elements.pairDialog.showModal();
 }
@@ -915,6 +937,9 @@ function reviewSlotWrite() {
   state.writeJob = job;
   elements.writeReview.textContent = `Write “${job.source.name || "Unnamed card"}” to ${job.simulated ? "Demo " : ""}block ${job.block.toString(16).toUpperCase()}, slot ${String(job.slot).padStart(2, "0")}? Any existing card in this destination will be replaced. This writes one stored card; it does not load active program memory.`;
   elements.writeConfirm.textContent = job.simulated ? "Back up and write Demo slot" : "Choose backup file and write";
+  elements.writeConfirm.title = job.simulated
+    ? "Keep the original slot in this Demo session, then write and verify the simulated destination. Save a backup copy to retain it."
+    : "Choose a backup file, save and check the destination’s original contents, then write and verify the current card.";
   render();
   elements.writeDialog.showModal();
 }

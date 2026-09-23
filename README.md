@@ -34,7 +34,9 @@ The Connect button shows a spinner and **Connecting…** while the device choose
 
 The hosted app communicates directly with your selected calculator through Chrome's Web Serial API. You grant access separately for the hosted website; a connection granted to `localhost` or a local file does not automatically transfer to it. You can install the hosted app using Chrome's installation control when available. Live single-slot and two-card writing require choosing a destination backup file.
 
-## Current functionality — v0.6.0
+## Current functionality — v0.6.1
+
+**Widget tooltips:** hover over buttons, selectors, fields, directory entries and readouts for explanations. Tooltips distinguish viewing existing data from reading the calculator, explain backup and write controls, and adapt to live or Demo connection states. Help remains available for complete instructions.
 
 `Web/` contains the browser companion. It uses Chrome's Web Serial API to open the Serial Port Profile on a paired Bluetooth Classic TEENIX97. It provides an installable offline interface, live or Demo connection, the firmware-21 information/settings query, clock read and guarded time/date setting with read-back, and the complete 448-byte active-memory transfer. The memory view decodes all sixteen primary registers and all 224 program positions, and exports both the memory report and aligned program listing.
 
