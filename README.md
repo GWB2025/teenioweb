@@ -41,3 +41,4 @@ Thank you to **Tony Nixon (TeenNix)** for the TEENIX97 board, CalCom, documentat
 - [Publishing a website update](DEVELOPMENT_HISTORY.md#publish-an-update-on-github)
 - [Example programs, including Lucas–Lehmer](Programs/README.md)
 - [Clock protocol](Research/HP97-clock-protocol.md) and [HP-97S investigation](Research/HP97S-firmware21-follow-up.md)
+- [Original HP-97S manual and comparison with TEENIX97](Research/HP97S-original-documentation.md)
